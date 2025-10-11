@@ -1,8 +1,11 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'screens/chat_interface/chat_interface.dart'; // nhớ file này có ChatInterfaceScreen
+import 'screens/chat_interface/chat_interface.dart'; // phải có ChatInterfaceScreen
 
-void main() => runApp(const MyApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -10,41 +13,20 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Chat Demo',
       debugShowCheckedModeBanner: false,
-      title: 'Demo',
-      theme: ThemeData(useMaterial3: true),
-      home: const HomeScreen(),
-      // (tuỳ chọn) dùng named route
-      routes: {
-        '/figma': (_) => const ChatInterfaceScreen(),
-      },
-    );
-  }
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Home')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () {
-            // Cách 1: push thẳng widget
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const ChatInterfaceScreen(),
-              ),
-            );
-
-            // Cách 2 (tuỳ chọn): nếu dùng named route ở trên
-            // Navigator.of(context).pushNamed('/figma');
-          },
-          child: const Text('Đi tới UI Figma'),
-        ),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: const Color(0xFF6750A4),
+        brightness: Brightness.light,
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: const Color(0xFF6750A4),
+        brightness: Brightness.dark,
+      ),
+      themeMode: ThemeMode.system,
+      home: const ChatInterfaceScreen(), // Mở thẳng màn hình chat
     );
   }
 }

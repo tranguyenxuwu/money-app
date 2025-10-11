@@ -1,276 +1,257 @@
 import 'package:flutter/material.dart';
 
-/// Màn hình UI dựng từ Figma — phiên bản responsive
-class ChatInterfaceScreen extends StatelessWidget {
+/// Chat UI dựng lại theo Material 3 (ít custom nhất có thể)
+class ChatInterfaceScreen extends StatefulWidget {
   const ChatInterfaceScreen({super.key});
 
-  // Kích thước gốc của artboard Figma bạn gửi (dùng để tính tỉ lệ)
-  static const double _designW = 361;
+  @override
+  State<ChatInterfaceScreen> createState() => _ChatInterfaceScreenState();
+}
+
+class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
+  final TextEditingController _controller = TextEditingController();
+
+  // Danh sách tin nhắn với thông tin chi tiết
+  final List<Map<String, dynamic>> _messages = List.generate(
+    15,
+    (i) => i.isEven
+        ? {'isMe': true, 'text': 'Tin nhắn của tôi $i'}
+        : {
+            'isMe': false,
+            'action': 'Tạo ảnh',
+            'info': 'Đang xử lý yêu cầu của bạn...',
+            'result': 'Ảnh đã được tạo thành công với prompt: "A beautiful sunset"',
+          },
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    setState(() {
+      _messages.add({'isMe': true, 'text': text});
+    });
+    _controller.clear();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEDEDED),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final screenW = constraints.maxWidth;
-            // Scale theo bề ngang so với Figma
-            final scale = (screenW / _designW).clamp(0.7, 1.6);
+    final scheme = Theme.of(context).colorScheme;
 
-            // Helper để nhân tỉ lệ nhanh
-            double r(double v) => v * scale;
-
-            // Giữ UI nằm giữa + không quá rộng trên tablet
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: Padding(
-                  padding: EdgeInsets.all(r(12)),
-                  child: _FigmaResponsiveCard(r),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: scheme.surface,
+        appBar: AppBar(
+          bottom: const TabBar(
+            isScrollable: false,
+            tabs: [
+              Tab(text: 'Main'),
+              Tab(text: 'Tab 1'),
+              Tab(text: 'Tab 2'),
+            ],
+          ),
+        ),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _MessagesPane(messages: _messages),
+                            const Center(child: Text('Tab 1')),
+                            const Center(child: Text('Tab 2')),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _controller,
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: (_) => _send(),
+                                decoration: InputDecoration(
+                                  hintText: 'Nhập tin nhắn...',
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: scheme.surfaceContainerHigh,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(28),
+                                  ),
+                                  suffixIcon: IconButton(
+                                    onPressed: _send,
+                                    icon: const Icon(Icons.send),
+                                    tooltip: 'Gửi',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// Thẻ UI chính (bo góc + viền) — mọi kích thước tính bằng r(...)
-class _FigmaResponsiveCard extends StatelessWidget {
-  final double Function(double) r;
-  const _FigmaResponsiveCard(this.r);
+/// Widget hiển thị danh sách tin nhắn
+class _MessagesPane extends StatelessWidget {
+  final List<Map<String, dynamic>> messages;
+  const _MessagesPane({required this.messages});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // Không đặt width/height cứng — để nó giãn theo parent
-      decoration: ShapeDecoration(
-        color: const Color(0xFFFEF7FF), // Schemes-Surface
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(r(28)),
-          side: BorderSide(
-            width: r(8),
-            color: const Color(0xFFCAC4D0), // Outline-Variant
-            // strokeAlignOutside có thể gây warning trên 1 số SDK — bỏ cho an toàn
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: messages.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final msg = messages[i];
+        final isMe = msg['isMe'] as bool;
+
+        if (isMe) {
+          return _UserMessageBubble(text: msg['text'] as String);
+        } else {
+          return _BotActionCard(
+            action: msg['action'] as String,
+            info: msg['info'] as String,
+            result: msg['result'] as String,
+          );
+        }
+      },
+    );
+  }
+}
+
+/// Bubble tin nhắn của người dùng
+class _UserMessageBubble extends StatelessWidget {
+  final String text;
+  const _UserMessageBubble({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Card(
+          color: scheme.primary,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Text(
+              text,
+              style: TextStyle(color: scheme.onPrimary, fontSize: 14),
+            ),
           ),
         ),
       ),
-      child: Column(
-        children: [
-          // ===== Top status / header (mock) =====
-          SizedBox(
-            height: r(52),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: r(24), vertical: r(10)),
-              child: Row(
-                children: [
-                  Text(
-                    '9:30',
-                    style: TextStyle(
-                      color: const Color(0xFF1D1B20),
-                      fontSize: r(14),
-                      fontWeight: FontWeight.w500,
-                      height: 1.43,
-                      letterSpacing: 0.14,
-                    ),
-                  ),
-                  const Spacer(),
-                  Icon(Icons.signal_cellular_alt, size: r(16), color: const Color(0xFF1D1B20)),
-                  SizedBox(width: r(8)),
-                  Icon(Icons.wifi, size: r(16), color: const Color(0xFF1D1B20)),
-                  SizedBox(width: r(8)),
-                  Icon(Icons.battery_full, size: r(16), color: const Color(0xFF1D1B20)),
-                ],
-              ),
-            ),
-          ),
+    );
+  }
+}
 
-          // ===== Tab bar =====
-          SizedBox(
-            height: r(48),
+/// Card hành động của bot
+class _BotActionCard extends StatelessWidget {
+  final String action;
+  final String info;
+  final String result;
+
+  const _BotActionCard({
+    required this.action,
+    required this.info,
+    required this.result,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Card(
+          color: scheme.surfaceContainerLow,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: scheme.outlineVariant),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      _TabItem(
-                        r: r,
-                        label: 'Video',
-                        active: true,
-                      ),
-                      _TabItem(r: r, label: 'Photos'),
-                      _TabItem(r: r, label: 'Audio'),
-                    ],
-                  ),
+                // Tiêu đề hành động
+                Row(
+                  children: [
+                    Icon(Icons.auto_awesome, size: 20, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      action,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: scheme.primary,
+                          ),
+                    ),
+                  ],
                 ),
-                Divider(
-                  height: r(1),
-                  thickness: r(1),
-                  color: const Color(0xFFCAC4D0),
+                const SizedBox(height: 8),
+
+                // Thông tin
+                Text(
+                  info,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontStyle: FontStyle.italic,
+                      ),
+                ),
+                const SizedBox(height: 8),
+
+                // Divider
+                Divider(color: scheme.outlineVariant, height: 1),
+                const SizedBox(height: 8),
+
+                // Kết quả
+                Text(
+                  result,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurface,
+                      ),
                 ),
               ],
             ),
           ),
-
-          // ===== Content area: dùng Expanded để tự giãn theo chiều cao =====
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: r(12), vertical: r(12)),
-              child: _MessageListPlaceholder(r: r),
-            ),
-          ),
-
-          // ===== Bottom input bar (TextField thật, responsive) =====
-          Padding(
-            padding: EdgeInsets.fromLTRB(r(12), 0, r(12), r(12)),
-            child: Container(
-              height: r(56),
-              decoration: ShapeDecoration(
-                color: const Color(0xFFECE6F0), // Surface-Container-High
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(width: r(1), color: const Color(0x33000000)),
-                  borderRadius: BorderRadius.circular(r(28)),
-                ),
-                shadows: const [
-                  BoxShadow(
-                    color: Color(0x3F000000),
-                    blurRadius: 4,
-                    offset: Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Row(
-                children: [
-                  SizedBox(width: r(16)),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration.collapsed(
-                        hintText: 'Hinted search text',
-                        hintStyle: TextStyle(
-                          color: const Color(0xFF49454F),
-                          fontSize: r(16),
-                          height: 1.5,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      style: TextStyle(fontSize: r(16)),
-                    ),
-                  ),
-                  SizedBox(width: r(4)),
-                  SizedBox(
-                    width: r(56),
-                    height: r(56),
-                    child: IconButton(
-                      onPressed: () {},
-                      icon: Icon(Icons.send, size: r(22)),
-                      splashRadius: r(28),
-                      color: const Color(0xFF6750A4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Một ô tab (Video/Photos/Audio)
-class _TabItem extends StatelessWidget {
-  final double Function(double) r;
-  final String label;
-  final bool active;
-  const _TabItem({required this.r, required this.label, this.active = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: r(14)),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Align(
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: active ? const Color(0xFF6750A4) : const Color(0xFF49454F),
-                    fontSize: r(14),
-                    fontWeight: FontWeight.w400,
-                    height: 1.43,
-                    letterSpacing: 0.10,
-                  ),
-                ),
-              ),
-              if (active)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: -r(3),
-                  child: Center(
-                    child: Container(
-                      width: r(32),
-                      height: r(3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6750A4),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
         ),
-      ),
-    );
-  }
-}
-
-/// Placeholder danh sách tin nhắn (để bạn thay bằng ListView sau này)
-class _MessageListPlaceholder extends StatelessWidget {
-  final double Function(double) r;
-  const _MessageListPlaceholder({required this.r});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      // chỉ để dễ nhìn — có thể bỏ
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(r(16)),
-        color: const Color(0xFFF7F2FA),
-      ),
-      child: ListView.separated(
-        padding: EdgeInsets.all(r(12)),
-        itemCount: 8,
-        separatorBuilder: (_, __) => SizedBox(height: r(8)),
-        itemBuilder: (_, i) {
-          final isMe = i.isEven;
-          return Align(
-            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: r(12), vertical: r(8)),
-              decoration: BoxDecoration(
-                color: isMe ? const Color(0xFF6750A4) : const Color(0xFFE8DEF8),
-                borderRadius: BorderRadius.circular(r(12)),
-              ),
-              child: Text(
-                isMe ? 'Tin nhắn của tôi $i' : 'Tin nhắn của bot $i',
-                style: TextStyle(
-                  color: isMe ? Colors.white : const Color(0xFF1D1B20),
-                  fontSize: r(14),
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
