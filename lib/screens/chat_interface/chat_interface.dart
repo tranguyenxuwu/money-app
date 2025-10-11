@@ -30,14 +30,29 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
     super.dispose();
   }
 
-  void _send() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
+void _send() {
+  final text = _controller.text.trim();
+  if (text.isEmpty) return;
+
+  setState(() {
+    // Thêm tin nhắn của user
+    _messages.add({'isMe': true, 'text': text});
+  });
+  _controller.clear();
+
+  // Giả lập delay xử lý và trả về card action
+  Future.delayed(const Duration(milliseconds: 500), () {
+    if (!mounted) return;
     setState(() {
-      _messages.add({'isMe': true, 'text': text});
+      _messages.add({
+        'isMe': false,
+        'action': 'Xử lý yêu cầu',
+        'info': 'Đã nhận: "$text"',
+        'result': 'Kết quả xử lý thành công cho yêu cầu của bạn.',
+      });
     });
-    _controller.clear();
-  }
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +63,7 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
       child: Scaffold(
         backgroundColor: scheme.surface,
         appBar: AppBar(
+          toolbarHeight: 40.0,
           bottom: const TabBar(
             isScrollable: false,
             tabs: [
