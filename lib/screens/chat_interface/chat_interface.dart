@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'chat_functions.dart';
 
-/// Chat UI dựng lại theo Material 3 (ít custom nhất có thể)
+/// Màn hình giao diện chat
 class ChatInterfaceScreen extends StatefulWidget {
   const ChatInterfaceScreen({super.key});
 
@@ -8,21 +9,15 @@ class ChatInterfaceScreen extends StatefulWidget {
   State<ChatInterfaceScreen> createState() => _ChatInterfaceScreenState();
 }
 
+/// Trạng thái của màn hình chat
 class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
   final TextEditingController _controller = TextEditingController();
 
-  // Danh sách tin nhắn với thông tin chi tiết
-  final List<Map<String, dynamic>> _messages = List.generate(
-    15,
-    (i) => i.isEven
-        ? {'isMe': true, 'text': 'Tin nhắn của tôi $i'}
-        : {
-            'isMe': false,
-            'action': 'Tạo ảnh',
-            'info': 'Đang xử lý yêu cầu của bạn...',
-            'result': 'Ảnh đã được tạo thành công với prompt: "A beautiful sunset"',
-          },
-  );
+  /// Danh sách tin nhắn với thông tin chi tiết
+  final List<Map<String, dynamic>> _messages = getInitialMessages();
+
+  /// Biến điều khiển hiển thị tin nhắn mẫu
+  bool _showPreloaded = false;
 
   @override
   void dispose() {
@@ -30,30 +25,14 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
     super.dispose();
   }
 
-void _send() {
-  final text = _controller.text.trim();
-  if (text.isEmpty) return;
+  /// Phương thức gửi tin nhắn
+  void _send() {
+    final text = _controller.text.trim();
+    sendMessage(_messages, text, setState, mounted);
+    _controller.clear();
+  }
 
-  setState(() {
-    // Thêm tin nhắn của user
-    _messages.add({'isMe': true, 'text': text});
-  });
-  _controller.clear();
-
-  // Giả lập delay xử lý và trả về card action
-  Future.delayed(const Duration(milliseconds: 500), () {
-    if (!mounted) return;
-    setState(() {
-      _messages.add({
-        'isMe': false,
-        'action': 'Xử lý yêu cầu',
-        'info': 'Đã nhận: "$text"',
-        'result': 'Kết quả xử lý thành công cho yêu cầu của bạn.',
-      });
-    });
-  });
-}
-
+  /// Xây dựng giao diện
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -63,7 +42,8 @@ void _send() {
       child: Scaffold(
         backgroundColor: scheme.surface,
         appBar: AppBar(
-          toolbarHeight: 40.0,
+          toolbarHeight: 5.0,
+          actions: [],
           bottom: const TabBar(
             isScrollable: false,
             tabs: [
@@ -88,7 +68,7 @@ void _send() {
                       Expanded(
                         child: TabBarView(
                           children: [
-                            _MessagesPane(messages: _messages),
+                            _MessagesPane(messages: _messages, showPreloaded: _showPreloaded),
                             const Center(child: Text('Tab 1')),
                             const Center(child: Text('Tab 2')),
                           ],
@@ -137,16 +117,19 @@ void _send() {
 /// Widget hiển thị danh sách tin nhắn
 class _MessagesPane extends StatelessWidget {
   final List<Map<String, dynamic>> messages;
-  const _MessagesPane({required this.messages});
+  final bool showPreloaded;
+  const _MessagesPane({required this.messages, required this.showPreloaded});
 
   @override
   Widget build(BuildContext context) {
+    final filteredMessages = filterMessages(messages, showPreloaded);
+
     return ListView.separated(
       padding: const EdgeInsets.all(12),
-      itemCount: messages.length,
+      itemCount: filteredMessages.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
-        final msg = messages[i];
+        final msg = filteredMessages[i];
         final isMe = msg['isMe'] as bool;
 
         if (isMe) {
@@ -214,7 +197,7 @@ class _BotActionCard extends StatelessWidget {
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.5),
         child: Card(
           color: scheme.surfaceContainerLow,
           elevation: 0,
@@ -272,3 +255,4 @@ class _BotActionCard extends StatelessWidget {
     );
   }
 }
+
