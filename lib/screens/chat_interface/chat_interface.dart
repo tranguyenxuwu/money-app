@@ -14,10 +14,23 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
   final TextEditingController _controller = TextEditingController();
 
   /// Danh sách tin nhắn với thông tin chi tiết
-  final List<Map<String, dynamic>> _messages = getInitialMessages();
+  List<Map<String, dynamic>> _messages = [];
 
   /// Biến điều khiển hiển thị tin nhắn mẫu
   bool _showPreloaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    final loadedMessages = await getInitialMessages();
+    setState(() {
+      _messages = loadedMessages;
+    });
+  }
 
   @override
   void dispose() {
@@ -26,9 +39,9 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
   }
 
   /// Phương thức gửi tin nhắn
-  void _send() {
+  void _send() async {
     final text = _controller.text.trim();
-    sendMessage(_messages, text, setState, mounted);
+    await sendMessage(_messages, text, setState, mounted);
     _controller.clear();
   }
 
@@ -133,13 +146,15 @@ class _MessagesPane extends StatelessWidget {
         final isMe = msg['isMe'] as bool;
 
         if (isMe) {
-          return _UserMessageBubble(text: msg['text'] as String);
-        } else {
+          return _UserMessageBubble(text: msg['text'] as String? ?? 'Unknown');
+        } else if (msg['action'] != null) {
           return _BotActionCard(
-            action: msg['action'] as String,
-            info: msg['info'] as String,
-            result: msg['result'] as String,
+            action: msg['action'] as String? ?? 'Unknown',
+            info: msg['info'] as String? ?? 'Unknown',
+            result: msg['result'] as String? ?? 'Unknown',
           );
+        } else {
+          return _BotMessageBubble(text: msg['text'] as String? ?? 'Unknown');
         }
       },
     );
@@ -159,19 +174,32 @@ class _UserMessageBubble extends StatelessWidget {
       alignment: Alignment.centerRight,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Card(
-          color: scheme.primary,
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text(
-              text,
-              style: TextStyle(color: scheme.onPrimary, fontSize: 14),
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(
+                text,
+                style: TextStyle(color: scheme.onPrimary, fontSize: 14),
+              ),
             ),
-          ),
+            Positioned(
+              right: -8,
+              top: 10,
+              child: ClipPath(
+                clipper: _BubbleTailClipper(),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  color: scheme.primary,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -198,61 +226,133 @@ class _BotActionCard extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.5),
-        child: Card(
-          color: scheme.surfaceContainerLow,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(color: scheme.outlineVariant),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Tiêu đề hành động
-                Row(
-                  children: [
-                    Icon(Icons.auto_awesome, size: 20, color: scheme.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      action,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: scheme.primary,
-                          ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                // Thông tin
-                Text(
-                  info,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontStyle: FontStyle.italic,
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tiêu đề hành động
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome, size: 20, color: scheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        action,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: scheme.primary,
+                            ),
                       ),
-                ),
-                const SizedBox(height: 8),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
 
-                // Divider
-                Divider(color: scheme.outlineVariant, height: 1),
-                const SizedBox(height: 8),
+                  // Thông tin
+                  Text(
+                    info,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
 
-                // Kết quả
-                Text(
-                  result,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurface,
-                      ),
-                ),
-              ],
+                  // Divider
+                  Divider(color: scheme.outlineVariant, height: 1),
+                  const SizedBox(height: 8),
+
+                  // Kết quả
+                  Text(
+                    result,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurface,
+                        ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            Positioned(
+              left: -8,
+              top: 10,
+              child: ClipPath(
+                clipper: _BubbleTailClipper(),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  color: scheme.surfaceContainerLow,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
+/// Bubble tin nhắn của bot
+class _BotMessageBubble extends StatelessWidget {
+  final String text;
+  const _BotMessageBubble({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(
+                text,
+                style: TextStyle(color: scheme.onSurface, fontSize: 14),
+              ),
+            ),
+            Positioned(
+              left: -8,
+              top: 10,
+              child: ClipPath(
+                clipper: _BubbleTailClipper(),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  color: scheme.surfaceContainerLow,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Custom clipper for chat bubble tail
+class _BubbleTailClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.lineTo(size.width, 0);
+    path.lineTo(0, size.height / 2);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
