@@ -4,7 +4,10 @@ import 'package:money_app/home_interface/home_screen.dart';
 import 'package:money_app/transaction_interface/transaction_screen.dart';
 import 'screens/chat_interface/chat_interface.dart'; // nhớ file này có ChatInterfaceScreen
 
-void main() => runApp(const MyApp());
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -12,6 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Chat Demo',
       debugShowCheckedModeBanner: false,
       title: 'Demo',
       theme: ThemeData(useMaterial3: true),
