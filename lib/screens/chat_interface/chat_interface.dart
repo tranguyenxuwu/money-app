@@ -1,277 +1,358 @@
 import 'package:flutter/material.dart';
+import 'chat_functions.dart';
 
-/// Màn hình UI dựng từ Figma — phiên bản responsive
-class ChatInterfaceScreen extends StatelessWidget {
+/// Màn hình giao diện chat
+class ChatInterfaceScreen extends StatefulWidget {
   const ChatInterfaceScreen({super.key});
 
-  // Kích thước gốc của artboard Figma bạn gửi (dùng để tính tỉ lệ)
-  static const double _designW = 361;
-
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEDEDED),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final screenW = constraints.maxWidth;
-            // Scale theo bề ngang so với Figma
-            final scale = (screenW / _designW).clamp(0.7, 1.6);
-
-            // Helper để nhân tỉ lệ nhanh
-            double r(double v) => v * scale;
-
-            // Giữ UI nằm giữa + không quá rộng trên tablet
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: Padding(
-                  padding: EdgeInsets.all(r(12)),
-                  child: _FigmaResponsiveCard(r),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
+  State<ChatInterfaceScreen> createState() => _ChatInterfaceScreenState();
 }
 
-/// Thẻ UI chính (bo góc + viền) — mọi kích thước tính bằng r(...)
-class _FigmaResponsiveCard extends StatelessWidget {
-  final double Function(double) r;
-  const _FigmaResponsiveCard(this.r);
+/// Trạng thái của màn hình chat
+class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
+  final TextEditingController _controller = TextEditingController();
+
+  /// Danh sách tin nhắn với thông tin chi tiết
+  List<Map<String, dynamic>> _messages = [];
+
+  /// Biến điều khiển hiển thị tin nhắn mẫu
+  bool _showPreloaded = false;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      // Không đặt width/height cứng — để nó giãn theo parent
-      decoration: ShapeDecoration(
-        color: const Color(0xFFFEF7FF), // Schemes-Surface
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(r(28)),
-          side: BorderSide(
-            width: r(8),
-            color: const Color(0xFFCAC4D0), // Outline-Variant
-            // strokeAlignOutside có thể gây warning trên 1 số SDK — bỏ cho an toàn
-          ),
-        ),
-      ),
-      child: Column(
-        children: [
-          // ===== Top status / header (mock) =====
-          SizedBox(
-            height: r(52),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: r(24), vertical: r(10)),
-              child: Row(
-                children: [
-                  Text(
-                    '9:30',
-                    style: TextStyle(
-                      color: const Color(0xFF1D1B20),
-                      fontSize: r(14),
-                      fontWeight: FontWeight.w500,
-                      height: 1.43,
-                      letterSpacing: 0.14,
-                    ),
-                  ),
-                  const Spacer(),
-                  Icon(Icons.signal_cellular_alt, size: r(16), color: const Color(0xFF1D1B20)),
-                  SizedBox(width: r(8)),
-                  Icon(Icons.wifi, size: r(16), color: const Color(0xFF1D1B20)),
-                  SizedBox(width: r(8)),
-                  Icon(Icons.battery_full, size: r(16), color: const Color(0xFF1D1B20)),
-                ],
-              ),
-            ),
-          ),
-
-          // ===== Tab bar =====
-          SizedBox(
-            height: r(48),
-            child: Column(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      _TabItem(
-                        r: r,
-                        label: 'Video',
-                        active: true,
-                      ),
-                      _TabItem(r: r, label: 'Photos'),
-                      _TabItem(r: r, label: 'Audio'),
-                    ],
-                  ),
-                ),
-                Divider(
-                  height: r(1),
-                  thickness: r(1),
-                  color: const Color(0xFFCAC4D0),
-                ),
-              ],
-            ),
-          ),
-
-          // ===== Content area: dùng Expanded để tự giãn theo chiều cao =====
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: r(12), vertical: r(12)),
-              child: _MessageListPlaceholder(r: r),
-            ),
-          ),
-
-          // ===== Bottom input bar (TextField thật, responsive) =====
-          Padding(
-            padding: EdgeInsets.fromLTRB(r(12), 0, r(12), r(12)),
-            child: Container(
-              height: r(56),
-              decoration: ShapeDecoration(
-                color: const Color(0xFFECE6F0), // Surface-Container-High
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(width: r(1), color: const Color(0x33000000)),
-                  borderRadius: BorderRadius.circular(r(28)),
-                ),
-                shadows: const [
-                  BoxShadow(
-                    color: Color(0x3F000000),
-                    blurRadius: 4,
-                    offset: Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Row(
-                children: [
-                  SizedBox(width: r(16)),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration.collapsed(
-                        hintText: 'Hinted search text',
-                        hintStyle: TextStyle(
-                          color: const Color(0xFF49454F),
-                          fontSize: r(16),
-                          height: 1.5,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      style: TextStyle(fontSize: r(16)),
-                    ),
-                  ),
-                  SizedBox(width: r(4)),
-                  SizedBox(
-                    width: r(56),
-                    height: r(56),
-                    child: IconButton(
-                      onPressed: () {},
-                      icon: Icon(Icons.send, size: r(22)),
-                      splashRadius: r(28),
-                      color: const Color(0xFF6750A4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  void initState() {
+    super.initState();
+    _loadMessages();
   }
-}
 
-/// Một ô tab (Video/Photos/Audio)
-class _TabItem extends StatelessWidget {
-  final double Function(double) r;
-  final String label;
-  final bool active;
-  const _TabItem({required this.r, required this.label, this.active = false});
+  Future<void> _loadMessages() async {
+    final loadedMessages = await getInitialMessages();
+    setState(() {
+      _messages = loadedMessages;
+    });
+  }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Phương thức gửi tin nhắn
+  void _send() async {
+    final text = _controller.text.trim();
+    await sendMessage(_messages, text, setState, mounted);
+    _controller.clear();
+  }
+
+  /// Xây dựng giao diện
+  @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: r(14)),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Align(
-                alignment: Alignment.center,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: active ? const Color(0xFF6750A4) : const Color(0xFF49454F),
-                    fontSize: r(14),
-                    fontWeight: FontWeight.w400,
-                    height: 1.43,
-                    letterSpacing: 0.10,
-                  ),
-                ),
-              ),
-              if (active)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: -r(3),
-                  child: Center(
-                    child: Container(
-                      width: r(32),
-                      height: r(3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6750A4),
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                    ),
-                  ),
-                ),
+    final scheme = Theme.of(context).colorScheme;
+
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        backgroundColor: scheme.surface,
+        appBar: AppBar(
+          toolbarHeight: 5.0,
+          actions: [],
+          bottom: const TabBar(
+            isScrollable: false,
+            tabs: [
+              Tab(text: 'Main'),
+              Tab(text: 'Tab 1'),
+              Tab(text: 'Tab 2'),
             ],
           ),
         ),
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 720),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: Card(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _MessagesPane(messages: _messages, showPreloaded: _showPreloaded),
+                            const Center(child: Text('Tab 1')),
+                            const Center(child: Text('Tab 2')),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _controller,
+                                textInputAction: TextInputAction.send,
+                                onSubmitted: (_) => _send(),
+                                decoration: InputDecoration(
+                                  hintText: 'Nhập tin nhắn...',
+                                  isDense: true,
+                                  filled: true,
+                                  fillColor: scheme.surfaceContainerHigh,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(28),
+                                  ),
+                                  suffixIcon: IconButton(
+                                    onPressed: _send,
+                                    icon: const Icon(Icons.send),
+                                    tooltip: 'Gửi',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-/// Placeholder danh sách tin nhắn (để bạn thay bằng ListView sau này)
-class _MessageListPlaceholder extends StatelessWidget {
-  final double Function(double) r;
-  const _MessageListPlaceholder({required this.r});
+/// Widget hiển thị danh sách tin nhắn
+class _MessagesPane extends StatelessWidget {
+  final List<Map<String, dynamic>> messages;
+  final bool showPreloaded;
+  const _MessagesPane({required this.messages, required this.showPreloaded});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // chỉ để dễ nhìn — có thể bỏ
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(r(16)),
-        color: const Color(0xFFF7F2FA),
-      ),
-      child: ListView.separated(
-        padding: EdgeInsets.all(r(12)),
-        itemCount: 8,
-        separatorBuilder: (_, __) => SizedBox(height: r(8)),
-        itemBuilder: (_, i) {
-          final isMe = i.isEven;
-          return Align(
-            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: r(12), vertical: r(8)),
+    final filteredMessages = filterMessages(messages, showPreloaded);
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(12),
+      itemCount: filteredMessages.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, i) {
+        final msg = filteredMessages[i];
+        final isMe = msg['isMe'] as bool;
+
+        if (isMe) {
+          return _UserMessageBubble(text: msg['text'] as String? ?? 'Unknown');
+        } else if (msg['action'] != null) {
+          return _BotActionCard(
+            action: msg['action'] as String? ?? 'Unknown',
+            info: msg['info'] as String? ?? 'Unknown',
+            result: msg['result'] as String? ?? 'Unknown',
+          );
+        } else {
+          return _BotMessageBubble(text: msg['text'] as String? ?? 'Unknown');
+        }
+      },
+    );
+  }
+}
+
+/// Bubble tin nhắn của người dùng
+class _UserMessageBubble extends StatelessWidget {
+  final String text;
+  const _UserMessageBubble({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Stack(
+          children: [
+            Container(
               decoration: BoxDecoration(
-                color: isMe ? const Color(0xFF6750A4) : const Color(0xFFE8DEF8),
-                borderRadius: BorderRadius.circular(r(12)),
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(16),
               ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Text(
-                isMe ? 'Tin nhắn của tôi $i' : 'Tin nhắn của bot $i',
-                style: TextStyle(
-                  color: isMe ? Colors.white : const Color(0xFF1D1B20),
-                  fontSize: r(14),
+                text,
+                style: TextStyle(color: scheme.onPrimary, fontSize: 14),
+              ),
+            ),
+            Positioned(
+              right: -8,
+              top: 10,
+              child: ClipPath(
+                clipper: _BubbleTailClipper(),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  color: scheme.primary,
                 ),
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
+}
+
+/// Card hành động của bot
+class _BotActionCard extends StatelessWidget {
+  final String action;
+  final String info;
+  final String result;
+
+  const _BotActionCard({
+    required this.action,
+    required this.info,
+    required this.result,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.5),
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: scheme.outlineVariant),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tiêu đề hành động
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome, size: 20, color: scheme.primary),
+                      const SizedBox(width: 8),
+                      Text(
+                        action,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: scheme.primary,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Thông tin
+                  Text(
+                    info,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Divider
+                  Divider(color: scheme.outlineVariant, height: 1),
+                  const SizedBox(height: 8),
+
+                  // Kết quả
+                  Text(
+                    result,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurface,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              left: -8,
+              top: 10,
+              child: ClipPath(
+                clipper: _BubbleTailClipper(),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  color: scheme.surfaceContainerLow,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bubble tin nhắn của bot
+class _BotMessageBubble extends StatelessWidget {
+  final String text;
+  const _BotMessageBubble({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Text(
+                text,
+                style: TextStyle(color: scheme.onSurface, fontSize: 14),
+              ),
+            ),
+            Positioned(
+              left: -8,
+              top: 10,
+              child: ClipPath(
+                clipper: _BubbleTailClipper(),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  color: scheme.surfaceContainerLow,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Custom clipper for chat bubble tail
+class _BubbleTailClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.lineTo(size.width, 0);
+    path.lineTo(0, size.height / 2);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

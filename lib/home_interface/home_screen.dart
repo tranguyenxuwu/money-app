@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:money_app/navigation_bar/navigation_bar_bottom.dart';
+import 'package:money_app/analysis_interface/analysis_screen.dart';
+import 'package:money_app/widgets/navigation_bar_bottom.dart';
 import 'package:money_app/screens/chat_interface/chat_interface.dart';
 import 'package:money_app/transaction_interface/transaction_screen.dart';
 
@@ -16,7 +17,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Danh sách các màn hình tương ứng với các tab
   static const List<Widget> _screens = <Widget>[
     DashboardContent(), // Index 0: Home
-    ChatInterfaceScreen(),   // Index 1: Analysis/Chat
+    AnalysisScreen(),   // Index 1: Analysis
     TransactionScreen(), // Index 2: Transaction
     // PlaceholderScreen(screenName: 'Categories'), // Index 3: Categories
     // PlaceholderScreen(screenName: 'Profile'),    // Index 4: Profile
@@ -31,7 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final width = size.width;
 
     return Scaffold(
       backgroundColor: const Color(0xFF00D09E),
