@@ -19,9 +19,13 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
   /// Biến điều khiển hiển thị tin nhắn mẫu
   bool _showPreloaded = false;
 
+  // Scroll controller to keep view pinned to newest message
+  late final ScrollController _scrollController;
+
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController();
     _loadMessages();
   }
 
@@ -30,18 +34,39 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
     setState(() {
       _messages = loadedMessages;
     });
+    // ensure we scroll to the bottom after the first frame (newest messages visible)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+  }
+
+  void _scrollToBottom() {
+    if (!_scrollController.hasClients) return;
+    try {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   /// Phương thức gửi tin nhắn
   void _send() async {
     final text = _controller.text.trim();
-    await sendMessage(_messages, text, setState, mounted);
+    if (text.isEmpty) return;
+    await sendMessage(
+      _messages,
+      text,
+      setState,
+      mounted,
+      onMessageAdded: _scrollToBottom,
+    );
     _controller.clear();
   }
 
@@ -52,70 +77,82 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
 
     return DefaultTabController(
       length: 3,
-      child: Scaffold(
-        backgroundColor: scheme.surface,
-        appBar: AppBar(
-          toolbarHeight: 5.0,
-          actions: [],
-          bottom: const TabBar(
-            isScrollable: false,
-            tabs: [
-              Tab(text: 'Main'),
-              Tab(text: 'Tab 1'),
-              Tab(text: 'Tab 2'),
-            ],
-          ),
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: Theme.of(
+            context,
+          ).colorScheme.copyWith(primary: Colors.green),
         ),
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Padding(
-                padding: const EdgeInsets.all(3),
-                child: Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            _MessagesPane(messages: _messages, showPreloaded: _showPreloaded),
-                            const Center(child: Text('Tab 1')),
-                            const Center(child: Text('Tab 2')),
-                          ],
+        child: Scaffold(
+          backgroundColor: scheme.surface,
+          appBar: AppBar(
+            toolbarHeight: 5.0,
+            actions: [],
+            // bottom: const TabBar(
+            //   isScrollable: false,
+            //   // tabs: [
+            //   //   Tab(text: 'Main'),
+            //   //   Tab(text: 'Tab 1'),
+            //   //   Tab(text: 'Tab 2'),
+            //   // ],
+            // ),
+          ),
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: Padding(
+                  padding: const EdgeInsets.all(3),
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              _MessagesPane(
+                                messages: _messages,
+                                showPreloaded: _showPreloaded,
+                                scrollController:
+                                    _scrollController, // pass controller down
+                              ),
+                              const Center(child: Text('Tab 1')),
+                              const Center(child: Text('Tab 2')),
+                            ],
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _controller,
-                                textInputAction: TextInputAction.send,
-                                onSubmitted: (_) => _send(),
-                                decoration: InputDecoration(
-                                  hintText: 'Nhập tin nhắn...',
-                                  isDense: true,
-                                  filled: true,
-                                  fillColor: scheme.surfaceContainerHigh,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(28),
-                                  ),
-                                  suffixIcon: IconButton(
-                                    onPressed: _send,
-                                    icon: const Icon(Icons.send),
-                                    tooltip: 'Gửi',
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _controller,
+                                  textInputAction: TextInputAction.send,
+                                  onSubmitted: (_) => _send(),
+                                  decoration: InputDecoration(
+                                    hintText: 'Nhập tin nhắn...',
+                                    isDense: true,
+                                    filled: true,
+                                    fillColor: scheme.surfaceContainerHigh,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(28),
+                                    ),
+                                    suffixIcon: IconButton(
+                                      onPressed: _send,
+                                      icon: const Icon(Icons.send),
+                                      tooltip: 'Gửi',
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -131,14 +168,22 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
 class _MessagesPane extends StatelessWidget {
   final List<Map<String, dynamic>> messages;
   final bool showPreloaded;
-  const _MessagesPane({required this.messages, required this.showPreloaded});
+  final ScrollController? scrollController;
+
+  const _MessagesPane({
+    required this.messages,
+    required this.showPreloaded,
+    this.scrollController,
+  });
 
   @override
   Widget build(BuildContext context) {
     final filteredMessages = filterMessages(messages, showPreloaded);
 
     return ListView.separated(
+      controller: scrollController,
       padding: const EdgeInsets.all(12),
+      reverse: false, // keep chronological; UI scrolls to the bottom
       itemCount: filteredMessages.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (_, i) {
@@ -152,6 +197,9 @@ class _MessagesPane extends StatelessWidget {
             action: msg['action'] as String? ?? 'Unknown',
             info: msg['info'] as String? ?? 'Unknown',
             result: msg['result'] as String? ?? 'Unknown',
+            direction:
+                msg['direction']
+                    as String?, // ensure arrow/direction shows correctly
           );
         } else {
           return _BotMessageBubble(text: msg['text'] as String? ?? 'Unknown');
@@ -192,11 +240,7 @@ class _UserMessageBubble extends StatelessWidget {
               top: 10,
               child: ClipPath(
                 clipper: _BubbleTailClipper(),
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  color: scheme.primary,
-                ),
+                child: Container(width: 8, height: 8, color: scheme.primary),
               ),
             ),
           ],
@@ -208,24 +252,30 @@ class _UserMessageBubble extends StatelessWidget {
 
 /// Card hành động của bot
 class _BotActionCard extends StatelessWidget {
-  final String action;
+  final String
+  action; // This will now hold the transaction type (e.g., "ăn uống", "di chuyển")
   final String info;
   final String result;
+  final String? direction;
 
   const _BotActionCard({
     required this.action,
     required this.info,
     required this.result,
+    this.direction,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isIncome = direction == 'in';
 
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.5),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.5,
+        ),
         child: Stack(
           children: [
             Container(
@@ -238,29 +288,33 @@ class _BotActionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tiêu đề hành động
+                  // Transaction type (e.g., "ăn uống", "di chuyển")
                   Row(
                     children: [
-                      Icon(Icons.auto_awesome, size: 20, color: scheme.primary),
+                      Icon(
+                        isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+                        size: 20,
+                        color: isIncome ? Colors.green : Colors.red,
+                      ),
                       const SizedBox(width: 8),
                       Text(
-                        action,
+                        action, // Display the guessed transaction type
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: scheme.primary,
-                            ),
+                          fontWeight: FontWeight.bold,
+                          color: scheme.primary,
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
 
-                  // Thông tin
+                  // Transaction details
                   Text(
                     info,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                          fontStyle: FontStyle.italic,
-                        ),
+                      color: scheme.onSurfaceVariant,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                   const SizedBox(height: 8),
 
@@ -268,12 +322,13 @@ class _BotActionCard extends StatelessWidget {
                   Divider(color: scheme.outlineVariant, height: 1),
                   const SizedBox(height: 8),
 
-                  // Kết quả
+                  // Result
                   Text(
                     result,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: scheme.onSurface,
-                        ),
+                      color: scheme.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
