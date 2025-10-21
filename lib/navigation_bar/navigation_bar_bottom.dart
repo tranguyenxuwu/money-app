@@ -12,38 +12,41 @@ class NavigationBarBottom extends StatelessWidget {
     final size = MediaQuery.of(context).size;
     final width = size.width;
 
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 16, horizontal: width * 0.08),
-      decoration: const BoxDecoration(color: Colors.white),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _NavIcon(
-            icon: Icons.home_filled,
-            active: selectedIndex == 0,
-            onTap: () => onIconTap(0),
-          ),
-          _NavIcon(
-            icon: Icons.bar_chart_rounded,
-            active: selectedIndex == 1,
-            onTap: () => onIconTap(1),
-          ),
-          _NavIcon(
-            icon: Icons.swap_horiz_rounded,
-            active: selectedIndex == 2,
-            onTap: () => onIconTap(2),
-          ),
-          _NavIcon(
-            icon: Icons.account_balance_wallet_outlined,
-            active: selectedIndex == 3,
-            onTap: () => onIconTap(3),
-          ),
-          _NavIcon(
-            icon: Icons.person_outline,
-            active: selectedIndex == 4,
-            onTap: () => onIconTap(4),
-          ),
-        ],
+    return SafeArea(
+      bottom: true,
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 16, horizontal: width * 0.08),
+        decoration: const BoxDecoration(color: Colors.white),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _NavIcon(
+              icon: Icons.home_filled,
+              active: selectedIndex == 0,
+              onTap: () => onIconTap(0),
+            ),
+            _NavIcon(
+              icon: Icons.bar_chart_rounded,
+              active: selectedIndex == 1,
+              onTap: () => onIconTap(1),
+            ),
+            _NavIcon(
+              icon: Icons.swap_horiz_rounded,
+              active: selectedIndex == 2,
+              onTap: () => onIconTap(2),
+            ),
+            _NavIcon(
+              icon: Icons.account_balance_wallet_outlined,
+              active: selectedIndex == 3,
+              onTap: () => onIconTap(3),
+            ),
+            _NavIcon(
+              icon: Icons.person_outline,
+              active: selectedIndex == 4,
+              onTap: () => onIconTap(4),
+            ),
+          ],
+        ),
       ),
     );
   }
