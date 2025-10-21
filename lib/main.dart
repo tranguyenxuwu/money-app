@@ -1,7 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:money_app/home_interface/home_screen.dart';
-import 'package:money_app/transaction_interface/transaction_screen.dart';
+import 'package:money_app/screens/home_interface/home_screen.dart';
+import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
 import 'screens/chat_interface/chat_interface.dart'; // nhớ file này có ChatInterfaceScreen
 
 void main() {
@@ -17,7 +17,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Chat Demo',
       debugShowCheckedModeBanner: false,
-      title: 'Demo',
       theme: ThemeData(useMaterial3: true),
       home: const HomeScreen(),
       // (tuỳ chọn) dùng named route
