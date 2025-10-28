@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:money_app/screens/analysis_interface/analysis_screen.dart';
 import 'package:money_app/widgets/navigation_bar_bottom.dart';
 import 'package:money_app/screens/chat_interface/chat_interface.dart';
-import 'package:money_app/transaction_interface/transaction_screen.dart';
+import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
