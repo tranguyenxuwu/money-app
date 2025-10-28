@@ -23,7 +23,10 @@ class DBHelper {
       try {
         await Directory(dirname(dbPath)).create(recursive: true);
         final data = await rootBundle.load('assets/data/money_app.sqlite');
-        final bytes = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        );
         await File(dbPath).writeAsBytes(bytes, flush: true);
       } catch (e) {
         // fallback: tạo rỗng nếu copy lỗi (hiếm)
@@ -46,36 +49,47 @@ class DBHelper {
     // Tạo bảng messages nếu chưa có
     await db.execute('''
       CREATE TABLE IF NOT EXISTS messages (
-        id             INTEGER PRIMARY KEY,
-        text           TEXT NOT NULL,
-        direction      TEXT NOT NULL DEFAULT 'in' CHECK (direction IN ('in','out')),
-        created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        parsed_amount  INTEGER,
-        category_guess TEXT,
-        account_guess  TEXT,
-        status         TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','parsed','linked')),
-        txn_id         INTEGER REFERENCES transactions(id) ON DELETE SET NULL
+        id         INTEGER PRIMARY KEY,
+        text       TEXT NOT NULL,
+        direction  TEXT NOT NULL DEFAULT 'out' CHECK (direction IN ('in','out')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        amount     INTEGER,
+        category   TEXT,
+        status     TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','parsed','linked')),
+        txn_id     INTEGER REFERENCES transactions(id) ON DELETE SET NULL
       )
     ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_msg_created ON messages(created_at)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_msg_txn ON messages(txn_id)');
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_msg_created ON messages(created_at)',
+    );
+    await db.execute(
+      'CREATE INDEX IF NOT EXISTS idx_msg_txn ON messages(txn_id)',
+    );
 
     // (Tuỳ chọn) đảm bảo bảng transactions tồn tại nếu DB assets quá tối giản
     await db.execute('''
       CREATE TABLE IF NOT EXISTS transactions(
-        id INTEGER PRIMARY KEY,
-        amount INTEGER NOT NULL,
-        note TEXT,
-        category TEXT DEFAULT 'other',
-        account TEXT DEFAULT 'Cash',
-        status TEXT NOT NULL DEFAULT 'success' CHECK (status IN ('success','pending','failed','info')),
+        id         INTEGER PRIMARY KEY,
+        amount     INTEGER NOT NULL,
+        note       TEXT,
+        category   TEXT DEFAULT 'other',
+        direction  TEXT DEFAULT 'out' CHECK (direction IN ('in', 'out')),
+        status     TEXT NOT NULL DEFAULT 'success' CHECK (status IN ('success','pending','failed','info')),
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT
       )
     ''');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_tx_created  ON transactions (created_at)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_tx_category ON transactions (category)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_tx_account  ON transactions (account)');
+
+    // Tạo bảng budgets nếu chưa có
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS budgets (
+        month_yyyymm INTEGER NOT NULL,
+        category     TEXT    NOT NULL,
+        limit_vnd    INTEGER NOT NULL,
+        PRIMARY KEY (month_yyyymm, category),
+        CHECK (limit_vnd >= 0)
+      )
+    ''');
   }
 
   // ===== Transactions APIs =====
@@ -85,22 +99,30 @@ class DBHelper {
     return db.query('transactions', orderBy: 'created_at DESC');
   }
 
-  static Future<List<Map<String, dynamic>>> getTransactionsByMonth(String ym) async {
+  static Future<List<Map<String, dynamic>>> getTransactionsByMonth(
+    String ym,
+  ) async {
     final db = await database;
-    return db.rawQuery('''
+    return db.rawQuery(
+      '''
       SELECT * FROM transactions
       WHERE strftime('%Y-%m', created_at) = ?
       ORDER BY created_at DESC
-    ''', [ym]);
+    ''',
+      [ym],
+    );
   }
 
   static Future<int> getTotalSpent(String ym) async {
     final db = await database;
-    final res = await db.rawQuery('''
-      SELECT SUM(-amount) AS spent
+    final res = await db.rawQuery(
+      '''
+      SELECT SUM(amount) AS spent
       FROM transactions
-      WHERE amount < 0 AND strftime('%Y-%m', created_at) = ?
-    ''', [ym]);
+      WHERE direction = 'out' AND strftime('%Y-%m', created_at) = ?
+    ''',
+      [ym],
+    );
     return (res.first['spent'] ?? 0) as int;
   }
 
@@ -108,7 +130,7 @@ class DBHelper {
     required int amount,
     required String note,
     String category = 'other',
-    String account = 'Cash',
+    String direction = 'out', // Added direction parameter
     String status = 'success',
     DateTime? createdAt,
   }) async {
@@ -117,7 +139,7 @@ class DBHelper {
       'amount': amount,
       'note': note,
       'category': category,
-      'account': account,
+      'direction': direction, // Save direction
       'status': status,
       'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
     });
@@ -129,9 +151,8 @@ class DBHelper {
   static Future<int> insertMessage({
     required String text,
     String direction = 'in',
-    int? parsedAmount,
-    String? categoryGuess,
-    String? accountGuess,
+    int? amount,
+    String? category,
     String status = 'new',
     int? txnId,
     DateTime? createdAt,
@@ -140,9 +161,8 @@ class DBHelper {
     return db.insert('messages', {
       'text': text,
       'direction': direction,
-      'parsed_amount': parsedAmount,
-      'category_guess': categoryGuess,
-      'account_guess': accountGuess,
+      'amount': amount,
+      'category': category,
       'status': status,
       'txn_id': txnId,
       'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
@@ -164,24 +184,31 @@ class DBHelper {
   }
 
   /// Lấy N tin nhắn mới nhất
-  static Future<List<Map<String, dynamic>>> getRecentMessages({int limit = 50}) async {
+  static Future<List<Map<String, dynamic>>> getRecentMessages({
+    int limit = 200,
+  }) async {
     final db = await database;
     return db.query(
       'messages',
-      orderBy: 'created_at DESC',
+      orderBy: 'created_at ASC', // Retrieve messages in chronological order
       limit: limit,
     );
   }
 
   /// Lấy tin nhắn kèm transaction (nếu có)
-  static Future<List<Map<String, dynamic>>> getMessagesWithTxn({int limit = 50}) async {
+  static Future<List<Map<String, dynamic>>> getMessagesWithTxn({
+    int limit = 50,
+  }) async {
     final db = await database;
-    return db.rawQuery('''
+    return db.rawQuery(
+      '''
       SELECT m.*, t.amount AS txn_amount, t.category AS txn_category, t.account AS txn_account
       FROM messages m
       LEFT JOIN transactions t ON t.id = m.txn_id
       ORDER BY m.created_at DESC
       LIMIT ?
-    ''', [limit]);
+    ''',
+      [limit],
+    );
   }
 }
