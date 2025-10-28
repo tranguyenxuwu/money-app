@@ -2,7 +2,7 @@ import 'dart:ffi';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:money_app/home_interface/home_screen.dart';
+import 'package:money_app/screens/home_interface/home_screen.dart';
 
 class AnalysisScreen extends StatelessWidget {
   const AnalysisScreen({super.key});
