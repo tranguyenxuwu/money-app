@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Chat Demo',
+      // title: 'Chat Demo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true),
       home: const HomeScreen(),
