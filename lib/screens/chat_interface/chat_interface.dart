@@ -17,7 +17,7 @@ class _ChatInterfaceScreenState extends State<ChatInterfaceScreen> {
   List<Map<String, dynamic>> _messages = [];
 
   /// Biến điều khiển hiển thị tin nhắn mẫu
-  bool _showPreloaded = false;
+  final bool _showPreloaded = false;
 
   // Scroll controller to keep view pinned to newest message
   late final ScrollController _scrollController;
