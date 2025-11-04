@@ -1,4 +1,5 @@
 // lib/features/authentication/screens/login_screen.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/features/authentication/screens/signup_screen.dart';
 import 'package:money_app/screens/home_interface/home_screen.dart';
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void dispose() {
@@ -23,19 +25,40 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() {
+  void _login() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         _isLoading = true;
       });
 
-      // Simulate a network call
-      Future.delayed(const Duration(seconds: 2), () {
-        // After successful login, navigate to the home screen
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+      try {
+        UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
         );
-      });
+        print("Đăng nhập thành công: ${userCredential.user?.email}");
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'user-not-found') {
+          print('Không tìm thấy người dùng với email này.');
+        } else if (e.code == 'wrong-password') {
+          print('Sai mật khẩu.');
+        } else {
+          print(e.message); // In ra lỗi chung
+        }
+      } catch (e) {
+        print(e.toString());
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
@@ -121,22 +144,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         onPressed: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => const SignupScreen(),
-                            ),
+                                builder: (context) => const SignupScreen()),
                           );
                         },
                         child: const Text('Sign Up'),
                       ),
                     ],
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                            builder: (context) => const HomeScreen()),
-                      );
-                    },
-                    child: const Text('Back to Home'),
                   ),
                 ],
               ),

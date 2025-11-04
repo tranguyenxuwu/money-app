@@ -1,4 +1,5 @@
 // lib/features/authentication/screens/signup_screen.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/screens/home_interface/home_screen.dart';
 
@@ -15,6 +16,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void dispose() {
@@ -24,19 +26,41 @@ class _SignupScreenState extends State<SignupScreen> {
     super.dispose();
   }
 
-  void _signup() {
+  void _signup() async {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         _isLoading = true;
       });
 
-      // Simulate a network call for registration
-      Future.delayed(const Duration(seconds: 2), () {
-        // After successful signup, navigate to the home screen
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+      try {
+        UserCredential userCredential =
+            await _auth.createUserWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
         );
-      });
+        print("Đăng ký thành công: ${userCredential.user?.email}");
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'weak-password') {
+          print('Mật khẩu quá yếu.');
+        } else if (e.code == 'email-already-in-use') {
+          print('Email này đã được sử dụng.');
+        } else {
+          print(e.message); // In ra lỗi chung
+        }
+      } catch (e) {
+        print(e.toString());
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      }
     }
   }
 
