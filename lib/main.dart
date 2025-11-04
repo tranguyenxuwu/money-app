@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:money_app/features/authentication/screens/login_screen.dart';
 import 'package:money_app/firebase_options.dart';
 import 'package:money_app/screens/home_interface/home_screen.dart';
@@ -10,6 +11,7 @@ import 'screens/chat_interface/chat_interface.dart'; // nhớ file này có Chat
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: "lib/.env");
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
