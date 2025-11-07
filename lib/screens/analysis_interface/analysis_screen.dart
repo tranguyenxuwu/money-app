@@ -124,9 +124,6 @@ class AnalysisScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Widget TransactionFilter
-                        const TransactionFilter(),
-
                         const SizedBox(height: 24),
                         _buildChartCard(),
                         SizedBox(height: 24),
@@ -301,8 +298,8 @@ class AnalysisScreen extends StatelessWidget {
   // Hàm tạo dữ liệu cho các cột (với 2 thanh mỗi cột)
   List<BarChartGroupData> showingGroups() => List.generate(7, (i) {
     // Dữ liệu mẫu
-    final double income = [8.0, 10.0, 14.0, 7.0, 15.0, 12.0, 9.0][i];
-    final double expense = [7.0, 8.0, 5.0, 6.0, 11.0, 9.0, 7.0][i];
+    final double income = [8.0, 10.0, 11.0, 7.0, 15.0, 12.0, 9.0][i];
+    final double expense = [7.0, 1.0, 6.0, 6.0, 11.0, 9.0, 7.0][i];
     return makeGroupData(i, income, expense);
   });
 

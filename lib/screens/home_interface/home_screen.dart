@@ -3,6 +3,7 @@ import 'package:money_app/screens/analysis_interface/analysis_screen.dart';
 import 'package:money_app/widgets/navigation_bar_bottom.dart';
 import 'package:money_app/screens/chat_interface/chat_interface.dart';
 import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
+import 'package:money_app/widgets/transaction_item.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -168,41 +169,54 @@ class DashboardContent extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Widget TransactionFilter
-                        const TransactionFilter(),
-
-                        const SizedBox(height: 24),
-
-                        const SizedBox(height: 16),
-                        const _TransactionItem(
+                        const TransactionItem(
                           color: Color(0xFF6CB5FD),
-                          title: "Salary",
-                          subtitle: "Monthly",
+                          category: "Salary",
+                          note: "Monthly1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
                           time: "18:27 - April 30",
                           amount: "\$4,000.00",
                           isIncome: true,
                           icon: Icons.wallet_outlined,
                         ),
-                        const _TransactionItem(
+                        const TransactionItem(
                           color: Color(0xFF3299FF),
-                          title: "Groceries",
-                          subtitle: "Pantry",
+                          category: "Groceries",
+                          note: "Pantry",
                           time: "17:00 - April 24",
                           amount: "-\$100.00",
                           isIncome: false,
                           icon: Icons.shopping_bag_outlined,
                         ),
-                        const _TransactionItem(
+                        const TransactionItem(
                           color: Color(0xFF0068FF),
-                          title: "Rent",
-                          subtitle: "Rent",
+                          category: "Rent",
+                          note: "Rent",
                           time: "8:30 - April 15",
                           amount: "-\$674.40",
                           isIncome: false,
                           icon: Icons.vpn_key_outlined,
                         ),
+                        const TransactionItem(
+                          color: Color(0xFF0068FF),
+                          category: "Rent",
+                          note: "Rent",
+                          time: "8:30 - April 15",
+                          amount: "-\$674.40",
+                          isIncome: false,
+                          icon: Icons.vpn_key_outlined,
+                        ),
+                        const TransactionItem(
+                          color: Color(0xFF0068FF),
+                          category: "Rent",
+                          note: "Rent",
+                          time: "8:30 - April 15",
+                          amount: "-\$674.40",
+                          isIncome: false,
+                          icon: Icons.vpn_key_outlined,
+                        ),
+
                         // THÊM KHOẢNG TRỐNG để nội dung không bị che bởi nav bar
-                        const SizedBox(height: 100),
+                        const SizedBox(height: 10),
                       ],
                     ),
                   ),
@@ -210,101 +224,6 @@ class DashboardContent extends StatelessWidget {
               ),
             ],
           ),
-    );
-  }
-}
-
-// =========================================================
-// === WIDGET MỚI: DÀNH CHO NHÓM NÚT LỌC GIAO DỊCH ===
-// =========================================================
-
-// Enum để định nghĩa các khoảng thời gian lọc
-enum FilterPeriod { daily, weekly, monthly }
-
-// Widget chính, có trạng thái riêng để quản lý nút nào đang được chọn
-class TransactionFilter extends StatefulWidget {
-  const TransactionFilter({super.key});
-
-  @override
-  State<TransactionFilter> createState() => _TransactionFilterState();
-}
-
-class _TransactionFilterState extends State<TransactionFilter> {
-  // Biến trạng thái để theo dõi mục được chọn, mặc định là Monthly
-  FilterPeriod _selectedPeriod = FilterPeriod.monthly;
-
-  // Hàm cập nhật trạng thái khi một nút được nhấn
-  void _onFilterTap(FilterPeriod period) {
-    setState(() {
-      _selectedPeriod = period;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE5F3E6), // Màu nền xanh lá nhạt
-        borderRadius: BorderRadius.circular(30.0),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          _FilterButton(
-            text: "Daily",
-            isSelected: _selectedPeriod == FilterPeriod.daily,
-            onTap: () => _onFilterTap(FilterPeriod.daily),
-          ),
-          _FilterButton(
-            text: "Weekly",
-            isSelected: _selectedPeriod == FilterPeriod.weekly,
-            onTap: () => _onFilterTap(FilterPeriod.weekly),
-          ),
-          _FilterButton(
-            text: "Monthly",
-            isSelected: _selectedPeriod == FilterPeriod.monthly,
-            onTap: () => _onFilterTap(FilterPeriod.monthly),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Widget phụ, tái sử dụng cho từng nút bấm trong bộ lọc
-class _FilterButton extends StatelessWidget {
-  final String text;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _FilterButton({
-    required this.text,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF00D09E) : Colors.transparent,
-            borderRadius: BorderRadius.circular(25.0),
-          ),
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.black54,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
@@ -351,82 +270,6 @@ class _BalanceItem extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _TransactionItem extends StatelessWidget {
-  final Color color;
-  final String title;
-  final String subtitle;
-  final String time;
-  final String amount;
-  final bool isIncome;
-  final IconData icon;
-
-  const _TransactionItem({
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.time,
-    required this.amount,
-    required this.isIncome,
-    this.icon = Icons.attach_money,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Container(
-            width: 55,
-            height: 55,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(icon, color: Colors.white),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  time,
-                  style: const TextStyle(fontSize: 13, color: Colors.black54),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                amount,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isIncome ? const Color(0xFF00D09E) : Colors.redAccent,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 13, color: Colors.black54),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
