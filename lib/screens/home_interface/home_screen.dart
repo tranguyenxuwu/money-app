@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:money_app/screens/analysis_interface/analysis_screen.dart';
 import 'package:money_app/widgets/navigation_bar_bottom.dart';
-import 'package:money_app/screens/chat_interface/chat_interface.dart';
 import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
 import 'package:money_app/widgets/transaction_item.dart';
+import 'package:money_app/screens/user_interface/user_interface.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,10 +18,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // Danh sách các màn hình tương ứng với các tab
   static const List<Widget> _screens = <Widget>[
     DashboardContent(), // Index 0: Home
-    AnalysisScreen(),   // Index 1: Analysis
+    AnalysisScreen(), // Index 1: Analysis
     TransactionScreen(), // Index 2: Transaction
-    // PlaceholderScreen(screenName: 'Categories'), // Index 3: Categories
-    // PlaceholderScreen(screenName: 'Profile'),    // Index 4: Profile
+    PlaceholderScreen(screenName: 'Categories'), // Index 3: Categories
+    UserInterfaceScreen(), // Index 4: Profile
   ];
 
   void _onIconTap(int index) {
@@ -32,8 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
     return Scaffold(
       backgroundColor: const Color(0xFF00D09E),
       // Body sẽ thay đổi dựa trên `_selectedIndex`
@@ -42,6 +40,28 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: NavigationBarBottom(
         selectedIndex: _selectedIndex,
         onIconTap: _onIconTap, // Truyền hàm callback xuống
+      ),
+    );
+  }
+}
+
+class PlaceholderScreen extends StatelessWidget {
+  final String screenName;
+
+  const PlaceholderScreen({super.key, required this.screenName});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(screenName),
+        backgroundColor: const Color(0xFF00D09E),
+      ),
+      body: Center(
+        child: Text(
+          'This is the $screenName screen.',
+          style: const TextStyle(fontSize: 24),
+        ),
       ),
     );
   }
@@ -122,7 +142,7 @@ class DashboardContent extends StatelessWidget {
                           height: 25,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(15),
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withAlpha(26),
                           ),
                           child: FractionallySizedBox(
                             widthFactor: 0.3, // 30%

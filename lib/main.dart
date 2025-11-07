@@ -1,11 +1,20 @@
 // lib/main.dart
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:money_app/features/authentication/screens/login_screen.dart';
+import 'package:money_app/firebase_options.dart';
 import 'package:money_app/screens/home_interface/home_screen.dart';
 import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
 import 'screens/chat_interface/chat_interface.dart'; // nhớ file này có ChatInterfaceScreen
 
-void main() {
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: "lib/.env");
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -15,16 +24,18 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      // title: 'Chat Demo',
+      title: 'Money App',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true),
-      home: const HomeScreen(),
-      // (tuỳ chọn) dùng named route
+      theme: ThemeData(
+        useMaterial3: true,
+        // ... your theme
+      ),
+      home:
+          const LoginScreen(), // Bắt đầu với LoginScreen để tránh lỗi Firebase
       routes: {
         '/figma': (_) => const ChatInterfaceScreen(),
         "/home": (_) => const HomeScreen(),
         "/transaction": (_) => const TransactionScreen(),
-
       },
     );
   }
