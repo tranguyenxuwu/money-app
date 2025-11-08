@@ -22,7 +22,7 @@ class DBHelper {
     if (!exists) {
       try {
         await Directory(dirname(dbPath)).create(recursive: true);
-        final data = await rootBundle.load('assets/data/money_app.sqlite');
+        final data = await rootBundle.load('assets/database.sqlite');
         final bytes = data.buffer.asUint8List(
           data.offsetInBytes,
           data.lengthInBytes,
@@ -124,6 +124,20 @@ class DBHelper {
       [ym],
     );
     return (res.first['spent'] ?? 0) as int;
+  }
+
+  static Future<int> getTotalIncome(String ym) async {
+    final db = await database;
+    final res = await db.rawQuery(
+      '''
+      SELECT SUM(amount) AS income
+      FROM transactions
+      WHERE direction = 'in' AND strftime('%Y-%m', created_at) = ?
+    ''',
+      [ym],
+    );
+    // Dùng 'income' thay vì 'spent'
+    return (res.first['income'] ?? 0) as int;
   }
 
   static Future<int> insertTransaction({
