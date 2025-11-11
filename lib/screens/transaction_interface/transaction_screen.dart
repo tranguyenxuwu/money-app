@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 
 import 'package:money_app/screens/dbhelper.dart'; // <-- Đường dẫn tới file DBHelper
 import 'package:money_app/models/transaction.dart'; // <-- Import model
-import '../analysis_interface/analysis_screen.dart'; // Giữ import cho Show
+import '../analysis_interface/analysis_screen.dart'; // <-- Import cho Show
 import 'package:money_app/widgets/transaction_item.dart';
 
 enum TransactionFilter { all, income, expense }
@@ -17,47 +19,94 @@ class TransactionScreen extends StatefulWidget {
 class _TransactionScreenState extends State<TransactionScreen> {
   TransactionFilter _selectedFilter = TransactionFilter.all;
 
-  // Danh sách này sẽ chứa dữ liệu từ CSDL
-  List<Transaction> _allTransactions = []; // <-- Dùng model Transaction
-  bool _isLoading = true; // Biến trạng thái loading
+  // --- BIẾN STATE ---
+  List<Transaction> _allTransactions = [];
+  bool _isLoading = true;
+
+  int _totalBalance = 0;
+  int _totalIncome = 0;
+  int _totalExpense = 0;
+
+  // --- KẾT THÚC BIẾN STATE ---
 
   @override
   void initState() {
     super.initState();
-    _fetchTransactions(); // Gọi hàm để tải dữ liệu từ CSDL
+    _fetchData(); // <-- Đổi tên hàm
   }
 
-  // Hàm gọi CSDL dùng DBHelper
-  Future<void> _fetchTransactions() async {
+  // --- HÀM TẢI DỮ LIỆU ---
+  Future<void> _fetchData() async {
     setState(() {
-      _isLoading = true; // Bắt đầu loading
+      _isLoading = true;
     });
 
     try {
-      // 1. Gọi hàm getAllTransactions từ DBHelper
-      final List<Map<String, dynamic>> dataMap =
-      await DBHelper.getAllTransactions();
+      // Lấy tháng hiện tại (ví dụ: '2025-11')
+      final String currentMonth = DateFormat('yyyy-MM').format(DateTime.now());
 
-      // 2. Chuyển List<Map> thành List<Transaction> (ĐÚNG)
-      final List<Transaction> loadedTransactions = dataMap.map((itemMap) {
-        // Chỉ tạo đối tượng dữ liệu Transaction, KHÔNG build widget
-        return Transaction.fromMap(itemMap);
-      }).toList();
+      // Chạy 3 câu query CSDL song song để tăng tốc
+      final results = await Future.wait([
+        DBHelper.getAllTransactions(), // (Bạn có thể lọc theo tháng nếu muốn)
+        DBHelper.getTotalIncome(currentMonth),
+        DBHelper.getTotalSpent(currentMonth),
+      ]);
+
+      // 1. Lấy danh sách giao dịch
+      final List<Map<String, dynamic>> dataMap =
+          results[0] as List<Map<String, dynamic>>;
+      final List<Transaction> loadedTransactions = dataMap
+          .map((itemMap) => Transaction.fromMap(itemMap))
+          .toList();
+
+      // 2. Lấy tổng thu nhập
+      final int income = results[1] as int;
+
+      // 3. Lấy tổng chi tiêu
+      final int expense = results[2] as int;
 
       setState(() {
-        // Gán List<Transaction> cho List<Transaction> (ĐÚNG)
         _allTransactions = loadedTransactions;
-        _isLoading = false; // Tải xong
+        _totalIncome = income;
+        _totalExpense = expense;
+        _totalBalance = income - expense; // Tính toán số dư
+        _isLoading = false;
+
         print('Đã tải thành công: ${loadedTransactions.length} giao dịch.');
+        print('Thu nhập T${currentMonth}: $income');
+        print('Chi tiêu T${currentMonth}: $expense');
       });
     } catch (error) {
-      // --- ĐÃ SỬA LỖI Ở ĐÂY ---
-      print('Lỗi nghiêm trọng khi fetchTransactions: $error');
+      print('Lỗi nghiêm trọng khi _fetchData: $error');
       setState(() {
-        _isLoading = false; // <-- Rất quan trọng: Tắt loading dù có lỗi
+        _isLoading = false;
       });
-      // --- KẾT THÚC SỬA ---
     }
+  }
+
+  // --- HÀM HELPER MỚI ĐỂ ĐỊNH DẠNG TIỀN TỆ ---
+  // Dựa theo logic cũ của bạn (chia 100)
+  String _formatCurrency(int amountInCents, {bool showSign = false}) {
+    double amount = amountInCents / 100.0;
+    // Dùng NumberFormat để định dạng tiền tệ chuẩn hơn (ví dụ: $15,000.00)
+    final format = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+    String formatted = format.format(amount);
+
+    if (showSign) {
+      if (amount > 0) {
+        return '+${format.format(amount)}';
+      } else if (amount < 0) {
+        return format.format(amount); // NumberFormat tự xử lý dấu trừ
+      }
+      // Fallback cho số 0
+      return format.format(amount);
+    }
+
+    // Nếu không show sign và số là âm (cho expense), bỏ dấu trừ
+    if (amount < 0) {
+      return format.format(amount * -1);
+    }
+    return formatted;
   }
 
   @override
@@ -65,7 +114,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     final size = MediaQuery.of(context).size;
     final width = size.width;
 
-    // Logic lọc giờ sẽ dùng _allTransactions (List<Transaction>)
+    // (Logic lọc danh sách giữ nguyên)
     final List<Transaction> filteredList;
     if (_selectedFilter == TransactionFilter.income) {
       filteredList = _allTransactions.where((tx) => tx.isIncome).toList();
@@ -105,10 +154,11 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 IntrinsicHeight(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
+                    children: [
+                      // Hiển thị số dư đã tính toán
                       _BalanceItem(
                         title: "Total Balance",
-                        amount: "\$7,783.00",
+                        amount: _formatCurrency(_totalBalance, showSign: true),
                       ),
                     ],
                   ),
@@ -117,16 +167,18 @@ class _TransactionScreenState extends State<TransactionScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // === Income Box ===
                     GestureDetector(
                       onTap: () {
                         setState(() {
                           _selectedFilter =
-                          _selectedFilter == TransactionFilter.income
+                              _selectedFilter == TransactionFilter.income
                               ? TransactionFilter.all
                               : TransactionFilter.income;
                         });
                       },
                       child: Container(
+                        // (style container giữ nguyên)
                         width: 171,
                         height: 101,
                         decoration: ShapeDecoration(
@@ -145,22 +197,27 @@ class _TransactionScreenState extends State<TransactionScreen> {
                           child: Show(
                             imageSrc: "assets/images/income.png",
                             title: "Income",
-                            money: "\$4,120.00",
+                            money: _formatCurrency(
+                              _totalIncome,
+                            ), // <-- Dữ liệu động
                             isExpense: false,
                           ),
                         ),
                       ),
                     ),
+
+                    // === Expense Box ===
                     GestureDetector(
                       onTap: () {
                         setState(() {
                           _selectedFilter =
-                          _selectedFilter == TransactionFilter.expense
+                              _selectedFilter == TransactionFilter.expense
                               ? TransactionFilter.all
                               : TransactionFilter.expense;
                         });
                       },
                       child: Container(
+                        // (style container giữ nguyên)
                         width: 171,
                         height: 101,
                         decoration: ShapeDecoration(
@@ -177,10 +234,11 @@ class _TransactionScreenState extends State<TransactionScreen> {
                         child: Padding(
                           padding: EdgeInsetsGeometry.only(top: 10),
                           child: Show(
-                            // --- ĐÃ SỬA LỖI ĐƯỜNG DẪN ---
-                            imageSrc: "assets/images/expenses.png", // <-- Đã xóa "./"
+                            imageSrc: "assets/images/expenses.png",
                             title: "Expense",
-                            money: "\$4,120.00",
+                            money: _formatCurrency(
+                              _totalExpense,
+                            ), // <-- Dữ liệu động
                             isExpense: true,
                           ),
                         ),
@@ -195,34 +253,106 @@ class _TransactionScreenState extends State<TransactionScreen> {
           // === PHẦN 2: NỘI DUNG NỀN TRẮNG BO GÓC ===
           Expanded(
             child: Container(
+              width: double.infinity,
               decoration: const BoxDecoration(
-                color: Color(0xFFF6F7F9), // Màu nền trắng xám
+                color: Color(0xFFF6F7F9),
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(40.0),
                   topRight: Radius.circular(40.0),
                 ),
               ),
-              child: _isLoading
-                  ? Center(child: CircularProgressIndicator()) // Hiển thị loading
-                  : SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 24, // Trừ padding
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 16),
 
-                    // Dùng .map để biến List<Transaction> thành List<TransactionItem>
-                    Column(
-                      // Dùng danh sách đã lọc (filteredList)
-                      children: filteredList.map((tx) {
-                        // Đây là nơi bạn ánh xạ dữ liệu
-                        return _buildTransactionItem(tx);
-                      }).toList(),
+                          // --- Logic hiển thị (Loading / Rỗng / Có dữ liệu) ---
+                          if (_isLoading)
+                            Center(child: CircularProgressIndicator())
+                          else if (filteredList.isEmpty)
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 64.0,
+                                ),
+                                child: Text(
+                                  _allTransactions.isEmpty
+                                      ? "Chưa có giao dịch nào."
+                                      : "Không có giao dịch nào khớp.",
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            Column(
+                              children: [
+                                // 1. Nhóm danh sách đã lọc theo tháng
+                                ...groupBy(
+                                  filteredList,
+                                  (Transaction tx) => DateFormat(
+                                    'yyyy-MM',
+                                  ).format(tx.createdAt),
+                                ).entries.map((entry) {
+                                  // entry.key là "2025-11"
+                                  // entry.value là List<Transaction> cho tháng đó
+
+                                  // Lấy tháng (ví dụ: "Tháng 11 2025")
+                                  final monthHeader = DateFormat(
+                                    'MMMM yyyy',
+                                  ).format(entry.value.first.createdAt);
+
+                                  // Trả về một Column cho mỗi tháng
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      // 2. Tiêu đề tháng (giống "April")
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          top: 24.0,
+                                          bottom: 8.0,
+                                        ),
+                                        child: Text(
+                                          monthHeader,
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black.withOpacity(
+                                              0.7,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // 3. Danh sách các giao dịch
+                                      Column(
+                                        children: entry.value.map((tx) {
+                                          return _buildTransactionItem(tx);
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ],
+                            ),
+
+                          const SizedBox(height: 50),
+                        ],
+                      ),
                     ),
-
-                    const SizedBox(height: 50),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ),
@@ -231,11 +361,11 @@ class _TransactionScreenState extends State<TransactionScreen> {
     );
   }
 
-  // --- HÀM HELPER ĐỂ ÁNH XẠ DATA ---
+  // --- HÀM HELPER ĐỂ ÁNH XẠ DATA (Giữ nguyên) ---
   Widget _buildTransactionItem(Transaction tx) {
     // 1. Logic cho Icon và Color
-    IconData categoryIcon = Icons.attach_money; // Mặc định
-    Color categoryColor = Color(0xFF6CB5FD); // Mặc định
+    IconData categoryIcon = Icons.attach_money;
+    Color categoryColor = Color(0xFF6CB5FD);
 
     if (tx.category == 'groceries') {
       categoryIcon = Icons.shopping_bag_outlined;
@@ -252,20 +382,16 @@ class _TransactionScreenState extends State<TransactionScreen> {
     } else if (tx.category == "transport") {
       categoryIcon = Icons.emoji_transportation;
     }
-    // (Thêm các category khác của bạn ở đây)
 
-    // 2. Logic định dạng tiền tệ (ví dụ)
-    // (Bạn nên dùng package 'intl' để làm việc này tốt hơn)
-    String formattedAmount = "\$${(tx.amount / 100).toStringAsFixed(2)}"; // Giả sử amount là cent (5000)
-
-    // Nếu là expense (isIncome = false), thêm dấu trừ
+    // 2. Logic định dạng tiền tệ
+    String formattedAmount = _formatCurrency(tx.amount); // Dùng helper mới
     if (!tx.isIncome) {
-      formattedAmount = "${formattedAmount}";
+      formattedAmount = "-$formattedAmount"; // Thêm dấu trừ cho chi tiêu
     }
 
-    // 3. Logic định dạng thời gian (ví dụ)
-    String formattedTime = "${tx.createdAt.hour}:${tx.createdAt.minute.toString().padLeft(2, '0')} - ${tx.createdAt.day} Thg${tx.createdAt.month}";
-
+    // 3. Logic định dạng thời gian
+    String formattedTime =
+        "${tx.createdAt.hour}:${tx.createdAt.minute.toString().padLeft(2, '0')} - ${tx.createdAt.day} Thg${tx.createdAt.month}";
 
     // --- Trả về widget ---
     return TransactionItem(
@@ -280,7 +406,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
   }
 }
 
-// (Class _BalanceItem giữ nguyên)
 class _BalanceItem extends StatelessWidget {
   final String title;
   final String amount;
