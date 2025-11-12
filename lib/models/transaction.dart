@@ -34,4 +34,15 @@ class Transaction {
       createdAt: DateTime.parse(map['created_at']),
     );
   }
+
+  // Hàm để chuyển đổi đối tượng Transaction thành Map để lưu vào Firestore
+  Map<String, dynamic> toMapForFirestore() {
+    return {
+      'amount': amount,
+      'note': note,
+      'category': category,
+      'direction': direction,
+      'createdAt': createdAt,
+    };
+  }
 }

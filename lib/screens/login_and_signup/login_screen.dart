@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:money_app/screens/login_and_signup/signup_screen.dart';
 import 'package:money_app/screens/home_interface/home_screen.dart';
+import 'package:money_app/services/sync_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -37,6 +38,10 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
         print("Đăng nhập thành công: ${userCredential.user?.email}");
+
+        // Perform the sync after successful login
+        await SyncService.syncAllDataToFirebase();
+
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const HomeScreen()),

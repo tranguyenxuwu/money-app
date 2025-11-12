@@ -1,11 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:money_app/services/sync_service.dart';
 
-class NavigationBarBottom extends StatelessWidget {
+class NavigationBarBottom extends StatefulWidget {
   final int selectedIndex;
-  // ValueChanged<int> nhận giá trị callback kiểu int
   final ValueChanged<int> onIconTap;
 
   const NavigationBarBottom({super.key, required this.selectedIndex, required this.onIconTap});
+
+  @override
+  State<NavigationBarBottom> createState() => _NavigationBarBottomState();
+}
+
+class _NavigationBarBottomState extends State<NavigationBarBottom> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Initial sync when the app starts
+    print("[AppLifecycle] Initial sync triggered.");
+    _syncData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      print("[AppLifecycle] App resumed, triggering sync.");
+      _syncData();
+    }
+  }
+
+  void _syncData() {
+    // This is an automatic background sync, so we don't show a snackbar.
+    // The service itself will print logs.
+    SyncService.syncAllDataToFirebase();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,28 +57,28 @@ class NavigationBarBottom extends StatelessWidget {
           children: [
             _NavIcon(
               icon: Icons.home_filled,
-              active: selectedIndex == 0,
-              onTap: () => onIconTap(0),
+              active: widget.selectedIndex == 0,
+              onTap: () => widget.onIconTap(0),
             ),
             _NavIcon(
               icon: Icons.bar_chart_rounded,
-              active: selectedIndex == 1,
-              onTap: () => onIconTap(1),
+              active: widget.selectedIndex == 1,
+              onTap: () => widget.onIconTap(1),
             ),
             _NavIcon(
               icon: Icons.swap_horiz_rounded,
-              active: selectedIndex == 2,
-              onTap: () => onIconTap(2),
+              active: widget.selectedIndex == 2,
+              onTap: () => widget.onIconTap(2),
             ),
             _NavIcon(
               icon: Icons.account_balance_wallet_outlined,
-              active: selectedIndex == 3,
-              onTap: () => onIconTap(3),
+              active: widget.selectedIndex == 3,
+              onTap: () => widget.onIconTap(3),
             ),
             _NavIcon(
               icon: Icons.person_outline,
-              active: selectedIndex == 4,
-              onTap: () => onIconTap(4),
+              active: widget.selectedIndex == 4,
+              onTap: () => widget.onIconTap(4),
             ),
           ],
         ),

@@ -9,6 +9,7 @@ import 'package:money_app/screens/login_and_signup/login_screen.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:money_app/services/sync_service.dart';
 
 class UserInterfaceScreen extends StatefulWidget {
   const UserInterfaceScreen({super.key});
@@ -84,6 +85,19 @@ class _UserInterfaceScreenState extends State<UserInterfaceScreen> {
     }
   }
 
+  Future<void> _syncData() async {
+    final bool success = await SyncService.syncAllDataToFirebase();
+    if (mounted) {
+      final message = success
+          ? 'Đồng bộ dữ liệu thành công!'
+          : 'Không có dữ liệu mới hoặc có lỗi xảy ra.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -114,22 +128,8 @@ class _UserInterfaceScreenState extends State<UserInterfaceScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasData && snapshot.data != null) {
-            // User is logged in
-            return StreamBuilder<DocumentSnapshot>(
-              stream: _firestore
-                  .collection('users')
-                  .doc(snapshot.data!.uid)
-                  .snapshots(),
-              builder: (context, userDocSnapshot) {
-                if (!userDocSnapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final user = snapshot.data!;
-                final userData =
-                    userDocSnapshot.data!.data() as Map<String, dynamic>? ?? {};
-                return _buildUserProfile(user, userData);
-              },
-            );
+            // User is logged in, build the full profile UI
+            return _buildUserProfile(context, snapshot.data!);
           } else {
             // User is not logged in
             return _buildLoginPrompt();
@@ -139,10 +139,8 @@ class _UserInterfaceScreenState extends State<UserInterfaceScreen> {
     );
   }
 
-  Widget _buildUserProfile(User user, Map<String, dynamic> userData) {
-    final birthday = userData['birthday'] as Timestamp?;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+  Widget _buildUserProfile(BuildContext context, User user) {
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -150,57 +148,53 @@ class _UserInterfaceScreenState extends State<UserInterfaceScreen> {
             onTap: _pickAndSaveImage,
             child: CircleAvatar(
               radius: 50,
-              backgroundImage:
-                  _avatarPath != null ? FileImage(File(_avatarPath!)) : null,
-              child: _avatarPath == null
-                  ? Text(
-                      user.email?.substring(0, 1).toUpperCase() ?? 'U',
-                      style: const TextStyle(fontSize: 40),
-                    )
-                  : null,
+              backgroundImage: _avatarPath != null ? FileImage(File(_avatarPath!)) : null,
+              child: _avatarPath == null ? const Icon(Icons.person, size: 50) : null,
             ),
           ),
           const SizedBox(height: 20),
           Text(
-            'Welcome!',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            user.email ?? 'No email provided',
-            style: const TextStyle(fontSize: 16, color: Colors.grey),
+            user.email ?? 'No email',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-          ListTile(
-            leading: const Icon(Icons.cake),
-            title: const Text('Birthday'),
-            subtitle: Text(birthday != null
-                ? DateFormat.yMMMMd().format(birthday.toDate())
-                : 'Not set'),
-            trailing: const Icon(Icons.edit),
-            onTap: _selectAndSetBirthday,
+          StreamBuilder<DocumentSnapshot>(
+            stream: _firestore.collection('users').doc(user.uid).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const CircularProgressIndicator();
+              }
+              if (!snapshot.hasData || !snapshot.data!.exists) {
+                // Handle case where user document doesn't exist yet.
+                // The sync is automatic, so we don't need to show a button here.
+                return Container();
+              }
+              final userData = snapshot.data!.data() as Map<String, dynamic>?;
+              final birthday = userData?['birthday'] as Timestamp?;
+              return Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.cake),
+                    title: const Text('Birthday'),
+                    subtitle: Text(birthday != null
+                        ? DateFormat.yMMMMd().format(birthday.toDate())
+                        : 'Not set'),
+                    trailing: const Icon(Icons.edit),
+                    onTap: _selectAndSetBirthday,
+                  ),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.sync),
+                    title: const Text('Đồng bộ thủ công'),
+                    subtitle: const Text('Đẩy dữ liệu local lên đám mây'),
+                    onTap: _syncData,
+                  ),
+                ],
+              );
+            },
           ),
-          const Divider(),
-          // Bank card section will be added here
-          _buildBankCardSection(),
         ],
       ),
-    );
-  }
-
-  Widget _buildBankCardSection() {
-    // For simplicity, we'll just show a button to add a card.
-    // A real implementation would involve a form and secure storage.
-    return ListTile(
-      leading: const Icon(Icons.credit_card),
-      title: const Text('Bank Cards'),
-      subtitle: const Text('Add or manage your cards'),
-      trailing: const Icon(Icons.arrow_forward_ios),
-      onTap: () {
-        // Navigate to a new screen to add/manage cards
-        Navigator.of(context).push(MaterialPageRoute(
-            builder: (context) => const BankCardManagementScreen()));
-      },
     );
   }
 

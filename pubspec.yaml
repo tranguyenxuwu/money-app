@@ -48,6 +48,7 @@ dependencies:
   intl: ^0.20.2
   shared_preferences: ^2.5.3
   flutter_dotenv: ^6.0.0
+  sqlite3_flutter_libs: ^0.5.40
 
 dev_dependencies:
   flutter_test:
