@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         MaterialPageRoute(builder: (context) => const HomeScreen()),
                       );
                     },
-                    child: const Text('Bỏ qua'),
+                    child: const Text('Bỏ qua đăng nhập'),
                   ),
                 ],
               ),
