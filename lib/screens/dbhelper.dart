@@ -159,6 +159,41 @@ class DBHelper {
     });
   }
 
+  static Future<int> updateTransaction({
+    required int id,
+    required int amount,
+    required String note,
+    String category = 'other',
+    String direction = 'out',
+    String status = 'success',
+    required DateTime createdAt,
+  }) async {
+    final db = await database;
+    return db.update(
+      'transactions',
+      {
+        'amount': amount,
+        'note': note,
+        'category': category,
+        'direction': direction,
+        'status': status,
+        'created_at': createdAt.toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  static Future<int> deleteTransaction(int id) async {
+    final db = await database;
+    return db.delete(
+      'transactions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // ===== Messages APIs =====
 
   /// Lưu tin nhắn (direction: 'in' = user, 'out' = app/bot)

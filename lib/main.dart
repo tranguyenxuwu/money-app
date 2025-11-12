@@ -46,30 +46,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-// class HomeScreen extends StatelessWidget {
-//   const HomeScreen({super.key});
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: const Text('Home')),
-//       body: Center(
-//         child: ElevatedButton(
-//           onPressed: () {
-//             // Cách 1: push thẳng widget
-//             Navigator.of(context).push(
-//               MaterialPageRoute(
-//                 builder: (_) => const ChatInterfaceScreen(),
-//               ),
-//             );
-//
-//             // Cách 2 (tuỳ chọn): nếu dùng named route ở trên
-//             // Navigator.of(context).pushNamed('/figma');
-//           },
-//           child: const Text('Đi tới UI Figma'),
-//         ),
-//       ),
-//     );
-//   }
-// }
