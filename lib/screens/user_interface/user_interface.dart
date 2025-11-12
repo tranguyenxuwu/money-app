@@ -41,10 +41,14 @@ class _UserInterfaceScreenState extends State<UserInterfaceScreen> {
 
   Future<void> _signOut() async {
     await _auth.signOut();
-    setState(() {
-      _avatarPath = null;
-    });
-    // The StreamBuilder will automatically handle the UI update
+    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (BuildContext context) {
+          return const LoginScreen();
+        },
+      ),
+      (_) => false,
+    );
   }
 
   Future<void> _pickAndSaveImage() async {

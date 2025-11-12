@@ -1,4 +1,5 @@
 // lib/main.dart
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -36,8 +37,22 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         // ... your theme
       ),
-      home:
-          const LoginScreen(), // Bắt đầu với LoginScreen để tránh lỗi Firebase
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+          if (snapshot.hasData) {
+            return const HomeScreen();
+          }
+          return const LoginScreen();
+        },
+      ),
       routes: {
         '/figma': (_) => const ChatInterfaceScreen(),
         "/home": (_) => const HomeScreen(),

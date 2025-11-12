@@ -1,7 +1,7 @@
 // lib/features/authentication/screens/login_screen.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:money_app/features/authentication/screens/signup_screen.dart';
+import 'package:money_app/screens/login_and_signup/signup_screen.dart';
 import 'package:money_app/screens/home_interface/home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -150,14 +150,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: const Text('Sign Up'),
                       ),
                     ],
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (context) => const HomeScreen()),
-                      );
-                    },
-                    child: const Text('Bỏ qua'),
                   ),
                 ],
               ),
