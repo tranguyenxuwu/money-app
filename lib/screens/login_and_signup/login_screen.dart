@@ -151,6 +151,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (context) => const HomeScreen()),
+                      );
+                    },
+                    child: const Text('Bỏ qua'),
+                  ),
                 ],
               ),
             ),
