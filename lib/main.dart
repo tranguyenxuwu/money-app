@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:money_app/features/authentication/screens/login_screen.dart';
+import 'package:money_app/screens/login_and_signup/login_screen.dart';
 import 'package:money_app/firebase_options.dart';
 import 'package:money_app/screens/home_interface/home_screen.dart';
 import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
