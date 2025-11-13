@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // <-- Thêm import
-import 'package:money_app/models/transaction.dart'; // <-- Thêm import
+import 'package:intl/intl.dart';
+
+import 'package:money_app/models/transaction.dart';
 import 'package:money_app/screens/analysis_interface/analysis_screen.dart';
-import 'package:money_app/screens/dbhelper.dart'; // <-- Thêm import
+import 'package:money_app/screens/dbhelper.dart';
 import 'package:money_app/widgets/navigation_bar_bottom.dart';
 import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
 import 'package:money_app/widgets/transaction_item.dart';
 import 'package:money_app/screens/user_interface/user_interface.dart';
-
-// <-- Thêm import cho màn hình chi tiết
 import 'package:money_app/screens/transaction_interface/transaction_detail_screen.dart';
+import 'package:money_app/screens/chat_interface/chat_interface.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -219,6 +219,14 @@ class _DashboardContentState extends State<DashboardContent> {
     }
   }
 
+  // <-- HÀM ĐIỀU HƯỚNG CHAT -->
+  void _navigateToChat() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (ctx) => const ChatInterfaceScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -327,46 +335,71 @@ class _DashboardContentState extends State<DashboardContent> {
             child: Container(
               width: double.infinity,
               decoration: const BoxDecoration(
-                color: Color(0xFFF6F7F9),
+                color: Color(0xFFF6F7F9), // Màu nền trắng xám
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(40.0),
                   topRight: Radius.circular(40.0),
                 ),
               ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // Dùng ClipRRect để đảm bảo nút FAB bị cắt theo góc bo
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(40.0),
+                  topRight: Radius.circular(40.0),
+                ),
+                // Dùng Stack để xếp chồng nội dung và nút
+                child: Stack(
                   children: [
-                    const Text(
-                      "Recent Transactions",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                    // --- LỚP 1: NỘI DUNG CUỘN (Như cũ) ---
+                    SingleChildScrollView(
+                      // Tăng padding dưới để không bị FAB che
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 90),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Recent Transactions",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (_isLoading)
+                            Center(child: CircularProgressIndicator())
+                          else if (_recentTransactions.isEmpty)
+                            Center(
+                              child: Padding(
+                                padding:
+                                const EdgeInsets.symmetric(vertical: 32.0),
+                                child: Text(
+                                  "Không có giao dịch nào trong tháng này.",
+                                  style: TextStyle(
+                                      color: Colors.grey[600], fontSize: 16),
+                                ),
+                              ),
+                            )
+                          else
+                            Column(
+                              children: _recentTransactions.map((tx) {
+                                return _buildTransactionItem(tx);
+                              }).toList(),
+                            ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    if (_isLoading)
-                      Center(child: CircularProgressIndicator())
-                    else if (_recentTransactions.isEmpty)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32.0),
-                          child: Text(
-                            "Chưa có giao dịch nào.",
-                            style:
-                            TextStyle(color: Colors.grey[600], fontSize: 16),
-                          ),
-                        ),
-                      )
-                    else
-                      Column(
-                        children: _recentTransactions.map((tx) {
-                          return _buildTransactionItem(tx);
-                        }).toList(),
+
+                    // --- LỚP 2: NÚT CHAT ---
+                    Positioned(
+                      bottom: 24, // Cách đáy 24
+                      right: 24, // Cách phải 24
+                      child: FloatingActionButton(
+                        onPressed: _navigateToChat,
+                        backgroundColor: const Color(0xFF00D09E),
+                        child: const Icon(Icons.chat_bubble_outline),
                       ),
-                    const SizedBox(height: 10),
+                    ),
                   ],
                 ),
               ),

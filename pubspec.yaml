@@ -80,7 +80,7 @@ flutter:
       - assets/images/income.png
       - assets/images/expenses.png
       - assets/database.sqlite
-#      - lib/.env
+      - lib/.env
       - assets/images/
 #      - assets/data/
 
