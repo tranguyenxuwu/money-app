@@ -80,9 +80,9 @@ flutter:
       - assets/images/income.png
       - assets/images/expenses.png
       - assets/database.sqlite
-      - lib/.env
+#      - lib/.env
       - assets/images/
-      - assets/data/
+#      - assets/data/
 
   #   - images/a_dot_ham.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
