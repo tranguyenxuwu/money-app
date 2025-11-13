@@ -17,22 +17,21 @@ class DBHelper {
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = join(dir.path, 'money_app.sqlite');
 
-    // Copy từ assets nếu chưa có
-    final exists = await databaseExists(dbPath);
-    if (!exists) {
-      try {
-        await Directory(dirname(dbPath)).create(recursive: true);
-        final data = await rootBundle.load('assets/database.sqlite');
-        final bytes = data.buffer.asUint8List(
-          data.offsetInBytes,
-          data.lengthInBytes,
-        );
-        await File(dbPath).writeAsBytes(bytes, flush: true);
-      } catch (e) {
-        // fallback: tạo rỗng nếu copy lỗi (hiếm)
-        await Directory(dirname(dbPath)).create(recursive: true);
-        await File(dbPath).writeAsBytes(const [], flush: true);
-      }
+    // Luôn ghi đè DB từ assets để đảm bảo dữ liệu mới nhất cho dev
+    try {
+      await Directory(dirname(dbPath)).create(recursive: true);
+      final data = await rootBundle.load('assets/database.sqlite');
+      final bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      await File(dbPath).writeAsBytes(bytes, flush: true);
+      print("Database is overwritten with asset file.");
+    } catch (e) {
+      print("Error overwriting database: $e");
+      // fallback: tạo rỗng nếu copy lỗi
+      await Directory(dirname(dbPath)).create(recursive: true);
+      await File(dbPath).writeAsBytes(const [], flush: true);
     }
 
     final db = await openDatabase(
@@ -96,7 +95,23 @@ class DBHelper {
 
   static Future<List<Map<String, dynamic>>> getAllTransactions() async {
     final db = await database;
-    return db.query('transactions', orderBy: 'created_at DESC');
+    final results = await db.query('transactions', orderBy: 'created_at DESC');
+    print('[DBHelper] Found ${results.length} transactions in local DB.');
+    return results;
+  }
+
+  static Future<List<Map<String, dynamic>>> getAllMessages() async {
+    final db = await database;
+    final results = await db.query('messages', orderBy: 'created_at DESC');
+    print('[DBHelper] Found ${results.length} messages in local DB.');
+    return results;
+  }
+
+  static Future<List<Map<String, dynamic>>> getAllBudgets() async {
+    final db = await database;
+    final results = await db.query('budgets');
+    print('[DBHelper] Found ${results.length} budgets in local DB.');
+    return results;
   }
 
   static Future<List<Map<String, dynamic>>> getTransactionsByMonth(
