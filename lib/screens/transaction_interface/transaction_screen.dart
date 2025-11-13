@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'package:money_app/screens/dbhelper.dart'; // <-- Đường dẫn tới file DBHelper
 import 'package:money_app/models/transaction.dart'; // <-- Import model
-import '../analysis_interface/analysis_screen.dart'; // Giữ import cho Show
+import '../analysis_interface/analysis_screen.dart'; // <-- Import cho Show
 import 'package:money_app/widgets/transaction_item.dart';
+import 'package:money_app/screens/transaction_interface/add_transaction_screen.dart';
+import 'package:money_app/screens/transaction_interface/transaction_detail_screen.dart';
 
 enum TransactionFilter { all, income, expense }
 
@@ -17,55 +20,139 @@ class TransactionScreen extends StatefulWidget {
 class _TransactionScreenState extends State<TransactionScreen> {
   TransactionFilter _selectedFilter = TransactionFilter.all;
 
-  // Danh sách này sẽ chứa dữ liệu từ CSDL
-  List<Transaction> _allTransactions = []; // <-- Dùng model Transaction
-  bool _isLoading = true; // Biến trạng thái loading
+  // --- BIẾN STATE ---
+  List<Transaction> _allTransactions = [];
+  bool _isLoading = true;
+
+  int _totalBalance = 0;
+  int _totalIncome = 0;
+  int _totalExpense = 0;
+  DateTime _currentDisplayDate = DateTime.now(); // "Tháng đang xem"
+  String _displayMonthName = ""; // Tên tháng để hiển thị
+  // --- KẾT THÚC BIẾN STATE ---
 
   @override
   void initState() {
     super.initState();
-    _fetchTransactions(); // Gọi hàm để tải dữ liệu từ CSDL
+    _fetchData();
   }
 
-  // Hàm gọi CSDL dùng DBHelper
-  Future<void> _fetchTransactions() async {
+  // --- HÀM TẢI DỮ LIỆU (ĐÃ SỬA) ---
+  Future<void> _fetchData() async {
     setState(() {
-      _isLoading = true; // Bắt đầu loading
+      _isLoading = true;
     });
 
     try {
-      // 1. Gọi hàm getAllTransactions từ DBHelper
-      final List<Map<String, dynamic>> dataMap =
-      await DBHelper.getAllTransactions();
+      // --- SỬA LOGIC LẤY THÁNG ---
+      // Lấy thông tin từ "tháng đang xem"
+      final String currentMonth = DateFormat('yyyy-MM').format(_currentDisplayDate);
+      final String displayMonth = DateFormat('MMMM yyyy').format(_currentDisplayDate);
 
-      // 2. Chuyển List<Map> thành List<Transaction> (ĐÚNG)
-      final List<Transaction> loadedTransactions = dataMap.map((itemMap) {
-        // Chỉ tạo đối tượng dữ liệu Transaction, KHÔNG build widget
-        return Transaction.fromMap(itemMap);
-      }).toList();
+      // Chạy 3 câu query CSDL song song
+      final results = await Future.wait([
+        DBHelper.getTransactionsByMonth(currentMonth),
+        DBHelper.getTotalIncome(currentMonth),
+        DBHelper.getTotalSpent(currentMonth),
+      ]);
+
+      // 1. Lấy danh sách giao dịch
+      final List<Map<String, dynamic>> dataMap =
+      results[0] as List<Map<String, dynamic>>;
+      final List<Transaction> loadedTransactions =
+      dataMap.map((itemMap) => Transaction.fromMap(itemMap)).toList();
+
+      // 2. Lấy tổng thu nhập
+      final int income = results[1] as int;
+
+      // 3. Lấy tổng chi tiêu
+      final int expense = results[2] as int;
 
       setState(() {
-        // Gán List<Transaction> cho List<Transaction> (ĐÚNG)
         _allTransactions = loadedTransactions;
-        _isLoading = false; // Tải xong
-        print('Đã tải thành công: ${loadedTransactions.length} giao dịch.');
+        _totalIncome = income;
+        _totalExpense = expense;
+        _totalBalance = income - expense;
+        _displayMonthName = displayMonth; // <-- Gán tên tháng
+        _isLoading = false;
+
+        print(
+            'Đã tải thành công: ${loadedTransactions.length} giao dịch cho tháng $currentMonth.');
+        print('Thu nhập T${currentMonth}: $income');
+        print('Chi tiêu T${currentMonth}: $expense');
       });
     } catch (error) {
-      // --- ĐÃ SỬA LỖI Ở ĐÂY ---
-      print('Lỗi nghiêm trọng khi fetchTransactions: $error');
+      print('Lỗi nghiêm trọng khi _fetchData: $error');
       setState(() {
-        _isLoading = false; // <-- Rất quan trọng: Tắt loading dù có lỗi
+        _isLoading = false;
       });
-      // --- KẾT THÚC SỬA ---
     }
   }
+
+  // --- THÊM HÀM MỚI: ĐỔI THÁNG ---
+  void _changeMonth(int amount) {
+    setState(() {
+      _currentDisplayDate = DateTime(
+        _currentDisplayDate.year,
+        _currentDisplayDate.month + amount,
+        1, // Set về ngày 1 để tránh lỗi 31/30
+      );
+    });
+    _fetchData(); // Tải lại dữ liệu cho tháng mới
+  }
+
+  // --- (Hàm _formatCurrency giữ nguyên) ---
+  String _formatCurrency(int amountInCents, {bool showSign = false}) {
+    double amount = amountInCents / 100.0;
+    final format = NumberFormat.currency(locale: 'en_US', symbol: '\$');
+    String formatted = format.format(amount);
+
+    if (showSign) {
+      if (amount > 0) {
+        return '+${format.format(amount)}';
+      } else if (amount < 0) {
+        return format.format(amount);
+      }
+      return format.format(amount);
+    }
+    if (amount < 0) {
+      return format.format(amount * -1);
+    }
+    return formatted;
+  }
+
+  // --- (Hàm _addTransaction giữ nguyên) ---
+  void _addTransaction() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (ctx) => AddTransactionScreen()),
+    ).then((_) {
+      print('Đang làm mới dữ liệu sau khi thêm...');
+      _fetchData();
+    });
+  }
+
+  // --- THÊM LẠI HÀM ĐÃ MẤT ---
+  void _viewTransactionDetails(Transaction tx) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => TransactionDetailScreen(transaction: tx),
+      ),
+    ).then((_) {
+      // Tự động làm mới danh sách khi quay lại
+      print('Đang làm mới dữ liệu sau khi xem chi tiết...');
+      _fetchData();
+    });
+  }
+  // --- KẾT THÚC THÊM HÀM ---
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final width = size.width;
 
-    // Logic lọc giờ sẽ dùng _allTransactions (List<Transaction>)
+    // (Logic lọc danh sách giữ nguyên)
     final List<Transaction> filteredList;
     if (_selectedFilter == TransactionFilter.income) {
       filteredList = _allTransactions.where((tx) => tx.isIncome).toList();
@@ -75,167 +162,233 @@ class _TransactionScreenState extends State<TransactionScreen> {
       filteredList = _allTransactions;
     }
 
-    return SafeArea(
-      child: Column(
-        children: [
-          // --- PHẦN 1: HEADER ---
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: width * 0.06,
-              vertical: 24,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // === Header Text ===
-                Center(
-                  child: const Text(
-                    "Transaction",
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+    return Scaffold(
+      backgroundColor: Color(0xFF00D09E),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addTransaction,
+        backgroundColor: Color(0xFF00D09E),
+        child: Icon(Icons.add),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // --- PHẦN 1: HEADER ---
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: width * 0.06,
+                vertical: 24,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: const Text(
+                      "Transaction",
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 24),
 
-                const SizedBox(height: 24),
-
-                // === Balance Section ===
-                IntrinsicHeight(
-                  child: Row(
+                  // --- BỘ CHỌN THÁNG ---
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
-                      _BalanceItem(
-                        title: "Total Balance",
-                        amount: "\$7,783.00",
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.arrow_back_ios_new,
+                            color: Colors.black54, size: 20),
+                        onPressed: () => _changeMonth(-1), // <-- Nút lùi
+                      ),
+                      Text(
+                        _displayMonthName, // <-- Hiển thị tên tháng
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.arrow_forward_ios,
+                            color: Colors.black54, size: 20),
+                        onPressed: () => _changeMonth(1), // <-- Nút tiến
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedFilter =
-                          _selectedFilter == TransactionFilter.income
-                              ? TransactionFilter.all
-                              : TransactionFilter.income;
-                        });
-                      },
-                      child: Container(
-                        width: 171,
-                        height: 101,
-                        decoration: ShapeDecoration(
-                          color: _selectedFilter == TransactionFilter.income
-                              ? Color.fromARGB(255, 188, 248, 195)
-                              : const Color(0xFFF1FFF3),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.89),
-                            side: _selectedFilter == TransactionFilter.income
-                                ? BorderSide(color: Colors.green, width: 2)
-                                : BorderSide.none,
+                  // --- KẾT THÚC BỘ CHỌN THÁNG ---
+
+                  const SizedBox(height: 16), // Thêm khoảng cách
+
+                  IntrinsicHeight(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: _BalanceItem(
+                            // Bỏ tên tháng ở đây, vì đã có ở trên
+                            title: "Total Balance",
+                            amount:
+                            _formatCurrency(_totalBalance, showSign: true),
                           ),
                         ),
-                        child: Padding(
-                          padding: EdgeInsetsGeometry.only(top: 10),
-                          child: Show(
-                            imageSrc: "assets/images/income.png",
-                            title: "Income",
-                            money: "\$4,120.00",
-                            isExpense: false,
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // --- ĐIỀN LẠI GESTUREDETECTOR (INCOME) ---
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedFilter =
+                            _selectedFilter == TransactionFilter.income
+                                ? TransactionFilter.all
+                                : TransactionFilter.income;
+                          });
+                        },
+                        child: Container(
+                          width: 171,
+                          height: 101,
+                          decoration: ShapeDecoration(
+                            color: _selectedFilter == TransactionFilter.income
+                                ? Color.fromARGB(255, 188, 248, 195)
+                                : const Color(0xFFF1FFF3),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14.89),
+                              side: _selectedFilter == TransactionFilter.income
+                                  ? BorderSide(color: Colors.green, width: 2)
+                                  : BorderSide.none,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsetsGeometry.only(top: 10),
+                            child: Show(
+                              imageSrc: "assets/images/income.png",
+                              title: "Income",
+                              money: _formatCurrency(
+                                _totalIncome,
+                              ),
+                              isExpense: false,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedFilter =
-                          _selectedFilter == TransactionFilter.expense
-                              ? TransactionFilter.all
-                              : TransactionFilter.expense;
-                        });
-                      },
-                      child: Container(
-                        width: 171,
-                        height: 101,
-                        decoration: ShapeDecoration(
-                          color: _selectedFilter == TransactionFilter.expense
-                              ? Color.fromARGB(255, 255, 201, 201)
-                              : const Color(0xFFF1FFF3),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14.89),
-                            side: _selectedFilter == TransactionFilter.expense
-                                ? BorderSide(color: Colors.red, width: 2)
-                                : BorderSide.none,
+                      // --- ĐIỀN LẠI GESTUREDETECTOR (EXPENSE) ---
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedFilter =
+                            _selectedFilter == TransactionFilter.expense
+                                ? TransactionFilter.all
+                                : TransactionFilter.expense;
+                          });
+                        },
+                        child: Container(
+                          width: 171,
+                          height: 101,
+                          decoration: ShapeDecoration(
+                            color: _selectedFilter == TransactionFilter.expense
+                                ? Color.fromARGB(255, 255, 201, 201)
+                                : const Color(0xFFF1FFF3),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14.89),
+                              side: _selectedFilter == TransactionFilter.expense
+                                  ? BorderSide(color: Colors.red, width: 2)
+                                  : BorderSide.none,
+                            ),
                           ),
-                        ),
-                        child: Padding(
-                          padding: EdgeInsetsGeometry.only(top: 10),
-                          child: Show(
-                            // --- ĐÃ SỬA LỖI ĐƯỜNG DẪN ---
-                            imageSrc: "assets/images/expenses.png", // <-- Đã xóa "./"
-                            title: "Expense",
-                            money: "\$4,120.00",
-                            isExpense: true,
+                          child: Padding(
+                            padding: EdgeInsetsGeometry.only(top: 10),
+                            child: Show(
+                              imageSrc: "assets/images/expenses.png",
+                              title: "Expense",
+                              money: _formatCurrency(
+                                _totalExpense,
+                              ),
+                              isExpense: true,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // === PHẦN 2: NỘI DUNG NỀN TRẮNG BO GÓC ===
-          Expanded(
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFFF6F7F9), // Màu nền trắng xám
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(40.0),
-                  topRight: Radius.circular(40.0),
-                ),
-              ),
-              child: _isLoading
-                  ? Center(child: CircularProgressIndicator()) // Hiển thị loading
-                  : SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 16),
-
-                    // Dùng .map để biến List<Transaction> thành List<TransactionItem>
-                    Column(
-                      // Dùng danh sách đã lọc (filteredList)
-                      children: filteredList.map((tx) {
-                        // Đây là nơi bạn ánh xạ dữ liệu
-                        return _buildTransactionItem(tx);
-                      }).toList(),
-                    ),
-
-                    const SizedBox(height: 50),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+
+            // === PHẦN 2: NỘI DUNG NỀN TRẮNG BO GÓC ===
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF6F7F9),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(40.0),
+                    topRight: Radius.circular(40.0),
+                  ),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight - 24,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 16),
+                            if (_isLoading)
+                              Center(child: CircularProgressIndicator())
+                            else if (filteredList.isEmpty)
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 64.0,
+                                  ),
+                                  child: Text(
+                                    // Sửa thông báo rỗng
+                                    "Không có giao dịch nào cho tháng này.",
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                            // --- SỬA LOGIC HIỂN THỊ LIST ---
+                            // Bỏ groupBy vì ta chỉ hiển thị 1 tháng
+                              Column(
+                                children: filteredList.map((tx) {
+                                  return _buildTransactionItem(tx);
+                                }).toList(),
+                              ),
+                            const SizedBox(height: 50),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // --- HÀM HELPER ĐỂ ÁNH XẠ DATA ---
+  // --- HÀM HELPER ĐỂ ÁNH XẠ DATA (ĐÃ THÊM LẠI GESTUREDETECTOR) ---
   Widget _buildTransactionItem(Transaction tx) {
     // 1. Logic cho Icon và Color
-    IconData categoryIcon = Icons.attach_money; // Mặc định
-    Color categoryColor = Color(0xFF6CB5FD); // Mặc định
+    IconData categoryIcon = Icons.attach_money;
+    Color categoryColor = Color(0xFF6CB5FD);
 
     if (tx.category == 'groceries') {
       categoryIcon = Icons.shopping_bag_outlined;
@@ -251,36 +404,41 @@ class _TransactionScreenState extends State<TransactionScreen> {
       categoryColor = Color(0xFF6CB5FD);
     } else if (tx.category == "transport") {
       categoryIcon = Icons.emoji_transportation;
+    } else if (tx.category == "other") {
+      categoryIcon = Icons.more_horiz;
+    } else if (tx.category == "bills") {
+      categoryIcon = Icons.receipt;
+    } else if (tx.category == "entertainment") {
+      categoryIcon = Icons.sports_esports;
     }
-    // (Thêm các category khác của bạn ở đây)
 
-    // 2. Logic định dạng tiền tệ (ví dụ)
-    // (Bạn nên dùng package 'intl' để làm việc này tốt hơn)
-    String formattedAmount = "\$${(tx.amount / 100).toStringAsFixed(2)}"; // Giả sử amount là cent (5000)
-
-    // Nếu là expense (isIncome = false), thêm dấu trừ
+    // 2. Logic định dạng tiền tệ
+    String formattedAmount = _formatCurrency(tx.amount); // Dùng helper mới
     if (!tx.isIncome) {
-      formattedAmount = "${formattedAmount}";
+      formattedAmount = "-$formattedAmount"; // Thêm dấu trừ cho chi tiêu
     }
 
-    // 3. Logic định dạng thời gian (ví dụ)
-    String formattedTime = "${tx.createdAt.hour}:${tx.createdAt.minute.toString().padLeft(2, '0')} - ${tx.createdAt.day} Thg${tx.createdAt.month}";
+    // 3. Logic định dạng thời gian
+    String formattedTime =
+        "${tx.createdAt.hour}:${tx.createdAt.minute.toString().padLeft(2, '0')} - ${tx.createdAt.day} Thg${tx.createdAt.month}";
 
-
-    // --- Trả về widget ---
-    return TransactionItem(
-      color: categoryColor,
-      category: tx.category ?? 'Other',
-      note: tx.note ?? '',
-      time: formattedTime,
-      amount: formattedAmount,
-      isIncome: tx.isIncome,
-      icon: categoryIcon,
+    // --- Trả về widget (Đã bọc lại) ---
+    return GestureDetector(
+      onTap: () => _viewTransactionDetails(tx), // <-- Gọi hàm điều hướng
+      child: TransactionItem(
+        color: categoryColor,
+        category: tx.category ?? 'Other',
+        note: tx.note ?? '',
+        time: formattedTime,
+        amount: formattedAmount,
+        isIncome: tx.isIncome,
+        icon: categoryIcon,
+      ),
     );
   }
 }
 
-// (Class _BalanceItem giữ nguyên)
+// --- CLASS _BalanceItem (ĐÃ SỬA LẠI) ---
 class _BalanceItem extends StatelessWidget {
   final String title;
   final String amount;
@@ -290,7 +448,7 @@ class _BalanceItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 357,
+      // width: 357, // <-- XÓA WIDTH CỨNG
       height: 75,
       decoration: ShapeDecoration(
         color: const Color(0xFFF1FFF2),
@@ -299,13 +457,21 @@ class _BalanceItem extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: const Color(0xFF093030),
-              fontSize: 15,
-              fontFamily: 'Poppins',
-              fontWeight: FontWeight.w500,
+          // Bọc Text bằng FittedBox để tự động co chữ
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title, // <-- Giờ đây nó sẽ nhận "Total Balance (November 2025)"
+                style: TextStyle(
+                  color: const Color(0xFF093030),
+                  fontSize: 15, // Cỡ chữ gốc
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+              ),
             ),
           ),
           Text(

@@ -49,6 +49,7 @@ dependencies:
   shared_preferences: ^2.5.3
   flutter_dotenv: ^6.0.0
   sqlite3_flutter_libs: ^0.5.40
+  collection: ^1.19.1
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +72,8 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # To add assets to your application, add an assets section, like this:
   assets:
 #     - images/a_dot_burr.jpeg
 #     - images/a_dot_ham.jpeg
@@ -80,7 +83,7 @@ flutter:
       - lib/.env
       - assets/images/
       - assets/data/
-      
+
   #   - images/a_dot_ham.jpeg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
