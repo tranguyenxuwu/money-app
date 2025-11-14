@@ -1,160 +1,298 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:money_app/screens/home_interface/home_screen.dart';
+import 'package:intl/intl.dart';
 
-class AnalysisScreen extends StatelessWidget {
+import 'package:money_app/screens/dbhelper.dart';
+import 'package:money_app/widgets/format_currency.dart';
+import 'package:money_app/screens/analysis_interface/search_screen.dart';
+
+
+class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({super.key});
 
+  @override
+  State<AnalysisScreen> createState() => _AnalysisScreenState();
+}
+
+class _AnalysisScreenState extends State<AnalysisScreen> {
   final Color incomeColor = const Color(0xFF00D09E);
   final Color expenseColor = const Color(0xFF0068FF);
 
+  // --- (Biến State đã được cập nhật) ---
+  bool _isLoading = true;
+  int _totalBalance = 0;
+  int _totalIncome = 0;
+  int _totalExpense = 0;
+
+  // --- SỬA Ở ĐÂY: Dùng DateTime để lưu năm ---
+  DateTime _selectedDate = DateTime.now(); // Lưu ngày (và năm) đang chọn
+  String _displayYearName = ""; // Tên năm
+  // --- KẾT THÚC SỬA ---
+
+  // --- THÊM STATE CHO BIỂU ĐỒ (DÙNG SỐ TIỀN ĐẦY ĐỦ) ---
+  List<double> _monthlyIncome = List.filled(12, 0.0);
+  List<double> _monthlyExpense = List.filled(12, 0.0);
+  double _chartMaxY = 5000000.0; // Mặc định là 5 Triệu
+  // --- KẾT THÚC THÊM STATE ---
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  // --- HÀM TẢI DỮ LIỆU (ĐÃ SỬA) ---
+  Future<void> _fetchData() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // --- SỬA Ở ĐÂY: Dùng _selectedDate thay vì now ---
+      final String currentYear = DateFormat('yyyy').format(_selectedDate);
+      final String displayYear = currentYear;
+      // --- KẾT THÚC SỬA ---
+
+      final results = await Future.wait([
+        DBHelper.getTotalIncomeByYear(currentYear),
+        DBHelper.getTotalSpentByYear(currentYear),
+        DBHelper.getMonthlySummaries(currentYear),
+      ]);
+
+      // 1. Xử lý Tổng header
+      final int income = results[0] as int;
+      final int expense = results[1] as int;
+
+      // 2. Xử lý Dữ liệu biểu đồ
+      final List<Map<String, dynamic>> monthlyData =
+      results[2] as List<Map<String, dynamic>>;
+
+      List<double> tempIncome = List.filled(12, 0.0);
+      List<double> tempExpense = List.filled(12, 0.0);
+      double maxDataValue = 0.0; // Biến tìm giá trị lớn nhất
+
+      for (var row in monthlyData) {
+        int monthIndex = int.parse(row['month']) - 1;
+
+        double incomeDouble = (row['totalIncome'] as int).toDouble();
+        double expenseDouble = (row['totalExpense'] as int).toDouble();
+
+        tempIncome[monthIndex] = incomeDouble;
+        tempExpense[monthIndex] = expenseDouble;
+
+        // Tìm giá trị lớn nhất mới
+        if (incomeDouble > maxDataValue) maxDataValue = incomeDouble;
+        if (expenseDouble > maxDataValue) maxDataValue = expenseDouble;
+      }
+
+      // 3. Tính toán maxY cho biểu đồ (làm tròn lên 5 Triệu gần nhất)
+      double newMaxY = (maxDataValue / 5000000).ceil() * 10000000;
+      if (newMaxY <= maxDataValue) {
+        newMaxY += 5000000;
+      }
+
+      setState(() {
+        // Gán dữ liệu cho Header
+        _totalIncome = income;
+        _totalExpense = expense;
+        _totalBalance = income - expense;
+        _displayYearName = displayYear;
+
+        // Gán dữ liệu cho Biểu đồ
+        _monthlyIncome = tempIncome;
+        _monthlyExpense = tempExpense;
+        _chartMaxY = newMaxY < 5000000
+            ? 5000000
+            : newMaxY; // MaxY tối thiểu là 5M
+
+        _isLoading = false;
+      });
+    } catch (error) {
+      print('Lỗi khi tải dữ liệu Analysis: $error');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  // --- THÊM HÀM MỚI: HIỂN THỊ BỘ CHỌN NĂM ---
+  Future<void> _presentYearPicker() async {
+    // Hiển thị hộp thoại chọn năm
+    final DateTime? picked = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Chọn năm"),
+          content: SizedBox(
+            width: 300,
+            height: 300,
+            child: YearPicker(
+              firstDate: DateTime(2020), // Năm bắt đầu
+              lastDate: DateTime(2100), // Năm kết thúc
+              initialDate: _selectedDate,
+              selectedDate: _selectedDate,
+              onChanged: (DateTime dateTime) {
+                // Khi người dùng chọn, đóng hộp thoại và trả về giá trị
+                Navigator.of(context).pop(dateTime);
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    // Nếu người dùng đã chọn một năm MỚI
+    if (picked != null && picked.year != _selectedDate.year) {
+      setState(() {
+        _selectedDate = picked; // Cập nhật năm
+      });
+      _fetchData(); // Tải lại dữ liệu cho năm mới
+    }
+  }
+
+  void _navigateToSearch() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => const SearchTransactionScreen(),
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
+    // ... (Hàm build và Header giữ nguyên)
     final size = MediaQuery.of(context).size;
     final width = size.width;
     return SafeArea(
       bottom: false,
       child:
-          // PHẦN NỀN: Toàn bộ nội dung cuộn được
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // === PHẦN 1: HEADER MÀU XANH ===
-              Padding(
-                padding: EdgeInsets.symmetric(
-                  horizontal: width * 0.06,
-                  vertical: 24,
+      // PHẦN NỀN: Toàn bộ nội dung cuộn được
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // === PHẦN 1: HEADER (GIỐNG HOME) ===
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: width * 0.06,
+              vertical: 24,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: const Text(
+                    "Analysis",
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 24),
+                IntrinsicHeight(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: _BalanceItem(
+                          title: "Total Balance ($_displayYearName)",
+                          amount:
+                          formatCurrency(_totalBalance, showSign: true),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // === Header Text ===
-                    Center(
-                      child: const Text(
-                        "Analysis",
-                        style: TextStyle(
-                          color: Colors.black87,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                    // --- Income Box ---
+                    Expanded(
+                      child: Container(
+                        height: 101,
+                        decoration: ShapeDecoration(
+                          color: const Color(0xFFF1FFF3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14.89),
+                          ),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsetsGeometry.only(top: 10),
+                          child: Show(
+                            imageSrc: "assets/images/income.png",
+                            title: "Income",
+                            money: formatCurrency(_totalIncome),
+                            isExpense: false,
+                          ),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(width: 16), // Khoảng cách
 
-                    // === Balance Section ===
-                    IntrinsicHeight(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [
-                          _BalanceItem(
-                            title: "Total Balance",
-                            amount: "\$7,783.00",
-                            amountColor: Colors.white,
+                    // --- Expense Box ---
+                    Expanded(
+                      child: Container(
+                        height: 101,
+                        decoration: ShapeDecoration(
+                          color: const Color(0xFFF1FFF3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14.89),
                           ),
-                          VerticalDivider(
-                            color: Colors.white54,
-                            width: 20,
-                            thickness: 1,
-                            indent: 5,
-                            endIndent: 5,
+                        ),
+                        child: Padding(
+                          padding: EdgeInsetsGeometry.only(top: 10),
+                          child: Show(
+                            imageSrc: "assets/images/expenses.png",
+                            title: "Expense",
+                            money: formatCurrency(_totalExpense),
+                            isExpense: true,
                           ),
-                          _BalanceItem(
-                            title: "Total Expense",
-                            amount: "-\$1,187.40",
-                            amountColor: Color(0xFF0068FF),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // === Progress Bar ===
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          height: 25,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(15),
-                            color: Colors.black.withOpacity(0.1),
-                          ),
-                          child: FractionallySizedBox(
-                            widthFactor: 0.3, // 30%
-                            alignment: Alignment.centerLeft,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF052224),
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Text(
-                                "30%",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "30% of your expenses, looks good.",
-                          style: TextStyle(color: Colors.white, fontSize: 14),
-                        ),
-                      ],
                     ),
                   ],
                 ),
-              ),
+              ],
+            ),
+          ),
 
-              // === PHẦN 2: NỘI DUNG NỀN TRẮNG BO GÓC ===
-              Expanded(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF6F7F9), // Màu nền trắng xám
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(40.0),
-                      topRight: Radius.circular(40.0),
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 24),
-                        _buildChartCard(),
-                        SizedBox(height: 24),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Show(
-                              imageSrc: "./assets/images/income.png",
-                              title: "Income",
-                              money: "\$4,120.00",
-                              isExpense: false,
-                            ),
-                            Show(
-                              imageSrc: "./assets/images/expenses.png",
-                              title: "Expenses",
-                              money: "\$100.000",
-                              isExpense: true,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+          // === PHẦN 2: NỘI DUNG NỀN TRẮNG BO GÓC ===
+          Expanded(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Color(0xFFF6F7F9), // Màu nền trắng xám
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(40.0),
+                  topRight: Radius.circular(40.0),
                 ),
               ),
-            ],
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Phần Chart giữ nguyên
+                    _buildChartCard(),
+                    SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
           ),
+        ],
+      ),
     );
   }
 
+  // --- HÀM _buildChartCard (ĐÃ SỬA NÚT LỊCH) ---
   Widget _buildChartCard() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -173,60 +311,75 @@ class AnalysisScreen extends StatelessWidget {
               ),
               Row(
                 children: [
-                  IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+                  IconButton(onPressed: _navigateToSearch, icon: const Icon(Icons.search)),
+                  // --- SỬA Ở ĐÂY ---
                   IconButton(
-                    onPressed: () {},
+                    onPressed: _presentYearPicker, // <-- Gọi hàm chọn năm
                     icon: const Icon(Icons.calendar_today),
                   ),
+                  // --- KẾT THÚC SỬA ---
                 ],
               ),
             ],
           ),
           const SizedBox(height: 20),
-          SizedBox(height: 200, child: BarChart(mainBarChart())),
+
+          // 1. Bọc bằng SingleChildScrollView để cuộn ngang
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Container(
+              padding: EdgeInsetsGeometry.only(top: 10),
+              // 2. Cung cấp chiều cao và chiều rộng CỐ ĐỊNH
+              height: 250.0,
+              width: 600.0,
+              child: BarChart(mainBarChart()),
+            ),
+          ),
         ],
       ),
     );
   }
+  // --- KẾT THÚC HÀM ---
 
+
+  // --- (Hàm mainBarChart, getTitles, showingGroups, makeGroupData giữ nguyên) ---
   BarChartData mainBarChart() {
     return BarChartData(
-      maxY: 16,
+      // SỬA: Dùng maxY động (ví dụ: 20000000.0)
+      maxY: _chartMaxY,
       barTouchData: BarTouchData(
-        // SỬA LỖI Ở ĐÂY: Thay thế `getTooltipItem` bằng `tooltipBuilder`
         touchTooltipData: BarTouchTooltipData(
-          tooltipHorizontalAlignment: FLHorizontalAlignment.right,
+          tooltipHorizontalAlignment: FLHorizontalAlignment.center,
           getTooltipColor: (group) => Colors.grey,
           tooltipMargin: 10,
           getTooltipItem: (group, groupIndex, rod, rodIndex) {
-            String weekDay;
+            String monthName;
             switch (group.x) {
-              case 0:
-                weekDay = 'Monday';
-                break;
-              case 1:
-                weekDay = 'Tuesday';
-                break;
-              case 2:
-                weekDay = 'Wednesday';
-                break;
-              case 3:
-                weekDay = 'Thursday';
-                break;
-              case 4:
-                weekDay = 'Friday';
-                break;
-              case 5:
-                weekDay = 'Saturday';
-                break;
-              case 6:
-                weekDay = 'Sunday';
-                break;
+              case 0: monthName = 'January'; break;
+              case 1: monthName = 'February'; break;
+              case 2: monthName = 'March'; break;
+              case 3: monthName = 'April'; break;
+              case 4: monthName = 'May'; break;
+              case 5: monthName = 'June'; break;
+              case 6: monthName = 'July'; break;
+              case 7: monthName = 'August'; break;
+              case 8: monthName = 'September'; break;
+              case 9: monthName = 'October'; break;
+              case 10: monthName = 'November'; break;
+              case 11: monthName = 'December'; break;
               default:
                 throw Error();
             }
+
+            // SỬA: Định dạng VNĐ đầy đủ cho tooltip
+            final format = NumberFormat.currency(
+              locale: 'vi_VN',
+              symbol: '₫',
+              decimalDigits: 0,
+            );
+
             return BarTooltipItem(
-              '$weekDay\n',
+              '$monthName\n',
               const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -234,7 +387,7 @@ class AnalysisScreen extends StatelessWidget {
               ),
               children: <TextSpan>[
                 TextSpan(
-                  text: (rod.toY - 1).toString(),
+                  text: format.format(rod.toY), // Hiển thị VNĐ đầy đủ
                   style: const TextStyle(
                     color: Colors.yellow,
                     fontSize: 16,
@@ -262,48 +415,58 @@ class AnalysisScreen extends StatelessWidget {
         leftTitles: AxisTitles(
           sideTitles: SideTitles(
             showTitles: true,
-            reservedSize: 38,
-            interval: 5,
+            reservedSize: 44,
+            // SỬA: Dùng interval động (ví dụ: 5000000)
+            interval: (_chartMaxY / 4).ceilToDouble(),
             getTitlesWidget: (value, meta) {
-              if (value == 0) return const Text('');
-              return Text(
-                '${value.toInt()}k',
-                style: const TextStyle(fontSize: 10),
-              );
+              // Ẩn nhãn 0 và nhãn trên cùng (maxY)
+              if (value == 0 || value >= _chartMaxY) return const Text('');
+
+              // SỬA: Hiển thị "M" (Triệu) hoặc "k" (Nghìn)
+              String label;
+              if (value >= 1000000) {
+                label = '${(value / 1000000).toStringAsFixed(0)}M';
+              } else {
+                label = '${(value / 1000).toStringAsFixed(0)}k';
+              }
+              return Text(label, style: const TextStyle(fontSize: 10));
             },
           ),
         ),
       ),
       borderData: FlBorderData(show: false),
       gridData: const FlGridData(show: false),
-      barGroups: showingGroups(),
+      barGroups: showingGroups(), // <-- Sẽ gọi hàm showingGroups
     );
   }
 
-  // Widget cho tiêu đề trục X (các ngày trong tuần)
   Widget getTitles(double value, TitleMeta meta) {
     const style = TextStyle(
       color: Colors.grey,
       fontWeight: FontWeight.bold,
       fontSize: 14,
     );
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    final text = (value.toInt() >= 0 && value.toInt() < months.length)
+        ? months[value.toInt()]
+        : '';
     return SideTitleWidget(
       meta: meta,
       space: 16,
-      child: Text(days[value.toInt()], style: style),
+      child: Text(text, style: style),
     );
   }
 
-  // Hàm tạo dữ liệu cho các cột (với 2 thanh mỗi cột)
-  List<BarChartGroupData> showingGroups() => List.generate(7, (i) {
-    // Dữ liệu mẫu
-    final double income = [8.0, 10.0, 11.0, 7.0, 15.0, 12.0, 9.0][i];
-    final double expense = [7.0, 1.0, 6.0, 6.0, 11.0, 9.0, 7.0][i];
+  List<BarChartGroupData> showingGroups() => List.generate(12, (i) {
+    // Lấy dữ liệu từ state (đã được tính bằng số tiền đầy đủ)
+    final double income = _monthlyIncome[i];
+    final double expense = _monthlyExpense[i];
     return makeGroupData(i, income, expense);
   });
 
-  // Hàm helper để tạo một nhóm dữ liệu cột (với 2 thanh)
   BarChartGroupData makeGroupData(int x, double y1, double y2) {
     const double width = 8;
     return BarChartGroupData(
@@ -327,52 +490,59 @@ class AnalysisScreen extends StatelessWidget {
   }
 }
 
+// --- (Class _BalanceItem giữ nguyên) ---
 class _BalanceItem extends StatelessWidget {
   final String title;
   final String amount;
-  final Color amountColor;
 
   const _BalanceItem({
     required this.title,
     required this.amount,
-    required this.amountColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              title == "Total Balance"
-                  ? Icons.arrow_upward
-                  : Icons.arrow_downward,
-              color: Colors.white,
-              size: 16,
+    return Container(
+      height: 75,
+      decoration: ShapeDecoration(
+        color: const Color(0xFFF1FFF2), // Màu nền xanh nhạt
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: const Color(0xFF093030),
+                  fontSize: 15,
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+              ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          amount,
-          style: TextStyle(
-            color: amountColor,
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
           ),
-        ),
-      ],
+          Text(
+            amount,
+            style: TextStyle(
+              color: const Color(0xFF093030),
+              fontSize: 24,
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
+// (Class Show giữ nguyên)
 class Show extends StatelessWidget {
   const Show({
     super.key,
@@ -391,7 +561,7 @@ class Show extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Image.asset(imageSrc),
+        Image.asset(imageSrc.replaceFirst("./", "")), // Đã sửa lỗi đường dẫn
         Text(title),
         Text(
           money,

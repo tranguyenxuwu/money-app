@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -153,6 +154,93 @@ class DBHelper {
     );
     // Dùng 'income' thay vì 'spent'
     return (res.first['income'] ?? 0) as int;
+  }
+
+  // --- THÊM HÀM MỚI: LẤY TỔNG THU NHẬP THEO NĂM ---
+  static Future<int> getTotalIncomeByYear(String yyyy) async {
+    final db = await database;
+    final res = await db.rawQuery(
+      '''
+      SELECT SUM(amount) AS total
+      FROM transactions
+      WHERE direction = 'in' AND strftime('%Y', created_at) = ?
+    ''',
+      [yyyy], // Lọc theo 'YYYY'
+    );
+    return (res.first['total'] ?? 0) as int;
+  }
+
+  // --- THÊM HÀM MỚI: LẤY TỔNG CHI TIÊU THEO NĂM ---
+  static Future<int> getTotalSpentByYear(String yyyy) async {
+    final db = await database;
+    final res = await db.rawQuery(
+      '''
+      SELECT SUM(amount) AS total
+      FROM transactions
+      WHERE direction = 'out' AND strftime('%Y', created_at) = ?
+    ''',
+      [yyyy], // Lọc theo 'YYYY'
+    );
+    return (res.first['total'] ?? 0) as int;
+  }
+
+  /// Lấy tổng thu nhập và chi tiêu cho mỗi tháng của một năm
+  static Future<List<Map<String, dynamic>>> getMonthlySummaries(String yyyy) async {
+    final db = await database;
+    return db.rawQuery(
+      '''
+      SELECT 
+        strftime('%m', created_at) AS month, -- '01', '02', etc.
+        SUM(CASE WHEN direction = 'in' THEN amount ELSE 0 END) AS totalIncome,
+        SUM(CASE WHEN direction = 'out' THEN amount ELSE 0 END) AS totalExpense
+      FROM transactions
+      WHERE strftime('%Y', created_at) = ?
+      GROUP BY month
+      ORDER BY month ASC
+    ''',
+      [yyyy],
+    );
+  }
+
+  /// Tìm kiếm giao dịch dựa trên các điều kiện
+  static Future<List<Map<String, dynamic>>> searchTransactions({
+    String? direction,
+    String? category,
+    DateTime? date,
+  }) async {
+    final db = await database;
+
+    // Xây dựng câu query động
+    List<String> whereClauses = [];
+    List<dynamic> whereArgs = [];
+
+    if (direction != null) {
+      whereClauses.add('direction = ?');
+      whereArgs.add(direction);
+    }
+    if (category != null) {
+      whereClauses.add('category = ?');
+      whereArgs.add(category);
+    }
+    if (date != null) {
+      // Lọc theo YYYY-MM-DD
+      whereClauses.add("strftime('%Y-%m-%d', created_at) = ?");
+      whereArgs.add(DateFormat('yyyy-MM-dd').format(date));
+    }
+
+    // Nối các điều kiện
+    String whereString = whereClauses.isEmpty
+        ? '' // Không có điều kiện
+        : 'WHERE ${whereClauses.join(' AND ')}';
+
+    final query = '''
+      SELECT * FROM transactions 
+      $whereString 
+      ORDER BY created_at DESC
+    ''';
+
+    print('Đang chạy query: $query với args: $whereArgs');
+    return db.rawQuery(query, whereArgs);
   }
 
   static Future<int> insertTransaction({
