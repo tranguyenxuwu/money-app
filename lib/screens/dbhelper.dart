@@ -4,14 +4,33 @@ import 'package:intl/intl.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'dart:async';
 
 class DBHelper {
   static Database? _db;
+  // --- THÊM COMPLETER ĐỂ QUẢN LÝ VIỆC KHỞI TẠO ---
+  static Completer<Database>? _completer;
 
   static Future<Database> get database async {
     if (_db != null) return _db!;
-    _db = await _initDb();
-    return _db!;
+
+    // Nếu đang khởi tạo, hãy chờ nó
+    if (_completer != null) {
+      return _completer!.future;
+    }
+
+    // Bắt đầu khởi tạo
+    _completer = Completer<Database>();
+
+    try {
+      final db = await _initDb(); // Gọi hàm _initDb gốc
+      _db = db; // Gán biến static
+      _completer!.complete(db); // Báo là đã xong
+      return db;
+    } catch (e) {
+      _completer!.completeError(e); // Báo là đã lỗi
+      rethrow; // Ném lỗi ra
+    }
   }
 
   static Future<Database> _initDb() async {
@@ -199,6 +218,19 @@ class DBHelper {
       ORDER BY month ASC
     ''',
       [yyyy],
+    );
+  }
+
+  /// Lấy tất cả giao dịch theo Category VÀ Năm
+  static Future<List<Map<String, dynamic>>> getTransactionsByCategory(
+      String category, String yyyy) async {
+    final db = await database;
+    return db.query(
+      'transactions',
+      // Lọc theo category VÀ năm
+      where: 'category = ? AND strftime("%Y", created_at) = ?',
+      whereArgs: [category, yyyy],
+      orderBy: 'created_at DESC', // Mới nhất lên đầu
     );
   }
 

@@ -8,6 +8,7 @@ import 'package:money_app/widgets/navigation_bar_bottom.dart';
 import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
 import 'package:money_app/widgets/transaction_item.dart';
 import 'package:money_app/screens/user_interface/user_interface.dart';
+import 'package:money_app/screens/category_interface/category_screen.dart';
 import 'package:money_app/screens/transaction_interface/transaction_detail_screen.dart';
 import 'package:money_app/screens/chat_interface/chat_interface.dart';
 import 'package:money_app/widgets/format_currency.dart';
@@ -27,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
     DashboardContent(), // Index 0: Home
     AnalysisScreen(), // Index 1: Analysis
     TransactionScreen(), // Index 2: Transaction
-    PlaceholderScreen(screenName: 'Categories'), // Index 3: Categories
+    CategoryScreen(), // Index 3: Categories
     UserInterfaceScreen(), // Index 4: Profile
   ];
 

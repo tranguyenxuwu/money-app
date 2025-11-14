@@ -6,10 +6,12 @@ import 'package:money_app/screens/dbhelper.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Transaction? transactionToEdit;
+  final String? defaultCategory;
 
   const AddTransactionScreen({
     super.key,
-    this.transactionToEdit, //
+    this.transactionToEdit,
+    this.defaultCategory,
   });
 
 
@@ -57,6 +59,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _selectedDate = tx.createdAt;
       _selectedCategory = tx.category;
       _transactionType = tx.direction;
+    }
+    else if (widget.defaultCategory != null) {
+      // Nếu là THÊM MỚI và có category mặc định
+      _selectedCategory = widget.defaultCategory;
     }
   }
   // --- KẾT THÚC initState ---
