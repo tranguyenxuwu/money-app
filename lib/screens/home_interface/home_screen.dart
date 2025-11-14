@@ -10,6 +10,7 @@ import 'package:money_app/widgets/transaction_item.dart';
 import 'package:money_app/screens/user_interface/user_interface.dart';
 import 'package:money_app/screens/transaction_interface/transaction_detail_screen.dart';
 import 'package:money_app/screens/chat_interface/chat_interface.dart';
+import 'package:money_app/widgets/format_currency.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -112,9 +113,10 @@ class _DashboardContentState extends State<DashboardContent> {
       ]);
 
       final List<Map<String, dynamic>> dataMap =
-      results[0] as List<Map<String, dynamic>>;
-      final List<Transaction> allTransactions =
-      dataMap.map((itemMap) => Transaction.fromMap(itemMap)).toList();
+          results[0] as List<Map<String, dynamic>>;
+      final List<Transaction> allTransactions = dataMap
+          .map((itemMap) => Transaction.fromMap(itemMap))
+          .toList();
 
       final int income = results[1] as int;
       final int expense = results[2] as int;
@@ -135,25 +137,6 @@ class _DashboardContentState extends State<DashboardContent> {
         });
       }
     }
-  }
-
-  String _formatCurrency(int amountInCents, {bool showSign = false}) {
-    double amount = amountInCents / 100.0;
-    final format = NumberFormat.currency(locale: 'en_US', symbol: '\$');
-    String formatted = format.format(amount);
-
-    if (showSign) {
-      if (amount > 0) {
-        return '+${format.format(amount)}';
-      } else if (amount < 0) {
-        return format.format(amount);
-      }
-      return format.format(amount);
-    }
-    if (amount < 0) {
-      return format.format(amount * -1);
-    }
-    return formatted;
   }
 
   void _viewTransactionDetails(Transaction tx) {
@@ -185,7 +168,7 @@ class _DashboardContentState extends State<DashboardContent> {
       categoryIcon = Icons.sports_esports;
     }
 
-    String formattedAmount = _formatCurrency(tx.amount);
+    String formattedAmount = formatCurrency(tx.amount);
     if (!tx.isIncome) {
       formattedAmount = "-$formattedAmount";
     }
@@ -206,6 +189,7 @@ class _DashboardContentState extends State<DashboardContent> {
       ),
     );
   }
+
   // --- KẾT THÚC HÀM HELPER ---
 
   String _getGreeting() {
@@ -271,54 +255,59 @@ class _DashboardContentState extends State<DashboardContent> {
                       Expanded(
                         child: _BalanceItem(
                           title: "Total Balance ($_displayMonthName)",
-                          amount:
-                          _formatCurrency(_totalBalance, showSign: true),
+                          amount: formatCurrency(_totalBalance, showSign: true),
                         ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // INCOME && EXPENSE BOX
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  spacing: 10,
                   children: [
                     // --- Income Box ---
-                    Container(
-                      width: 171,
-                      height: 101,
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFFF1FFF3),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14.89),
+                    Expanded(
+                      child: Container(
+                        height: 101,
+                        decoration: ShapeDecoration(
+                          color: const Color(0xFFF1FFF3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14.89),
+                          ),
                         ),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsetsGeometry.only(top: 10),
-                        child: Show(
-                          imageSrc: "assets/images/income.png",
-                          title: "Income",
-                          money: _formatCurrency(_totalIncome),
-                          isExpense: false,
+                        child: Padding(
+                          padding: EdgeInsetsGeometry.only(top: 10),
+                          child: Show(
+                            imageSrc: "assets/images/income.png",
+                            title: "Income",
+                            money: formatCurrency(_totalIncome),
+                            isExpense: false,
+                          ),
                         ),
                       ),
                     ),
+
                     // --- Expense Box ---
-                    Container(
-                      width: 171,
-                      height: 101,
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFFF1FFF3),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14.89),
+                    Expanded(
+                      child: Container(
+                        height: 101,
+                        decoration: ShapeDecoration(
+                          color: const Color(0xFFF1FFF3),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14.89),
+                          ),
                         ),
-                      ),
-                      child: Padding(
-                        padding: EdgeInsetsGeometry.only(top: 10),
-                        child: Show(
-                          imageSrc: "assets/images/expenses.png",
-                          title: "Expense",
-                          money: _formatCurrency(_totalExpense),
-                          isExpense: true,
+                        child: Padding(
+                          padding: EdgeInsetsGeometry.only(top: 10),
+                          child: Show(
+                            imageSrc: "assets/images/expenses.png",
+                            title: "Expense",
+                            money: formatCurrency(_totalExpense),
+                            isExpense: true,
+                          ),
                         ),
                       ),
                     ),
@@ -371,12 +360,15 @@ class _DashboardContentState extends State<DashboardContent> {
                           else if (_recentTransactions.isEmpty)
                             Center(
                               child: Padding(
-                                padding:
-                                const EdgeInsets.symmetric(vertical: 32.0),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 32.0,
+                                ),
                                 child: Text(
                                   "Không có giao dịch nào trong tháng này.",
                                   style: TextStyle(
-                                      color: Colors.grey[600], fontSize: 16),
+                                    color: Colors.grey[600],
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ),
                             )
@@ -416,10 +408,7 @@ class _BalanceItem extends StatelessWidget {
   final String amount;
 
   // Xóa 'amountColor' vì nó được tích hợp trong widget mới
-  const _BalanceItem({
-    required this.title,
-    required this.amount,
-  });
+  const _BalanceItem({required this.title, required this.amount});
 
   @override
   Widget build(BuildContext context) {

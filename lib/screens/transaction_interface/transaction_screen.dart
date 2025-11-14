@@ -7,6 +7,7 @@ import '../analysis_interface/analysis_screen.dart'; // <-- Import cho Show
 import 'package:money_app/widgets/transaction_item.dart';
 import 'package:money_app/screens/transaction_interface/add_transaction_screen.dart';
 import 'package:money_app/screens/transaction_interface/transaction_detail_screen.dart';
+import 'package:money_app/widgets/format_currency.dart';
 
 enum TransactionFilter { all, income, expense }
 
@@ -29,7 +30,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
   int _totalExpense = 0;
   DateTime _currentDisplayDate = DateTime.now(); // "Tháng đang xem"
   String _displayMonthName = ""; // Tên tháng để hiển thị
-  // --- KẾT THÚC BIẾN STATE ---
+
 
   @override
   void initState() {
@@ -46,8 +47,12 @@ class _TransactionScreenState extends State<TransactionScreen> {
     try {
       // --- SỬA LOGIC LẤY THÁNG ---
       // Lấy thông tin từ "tháng đang xem"
-      final String currentMonth = DateFormat('yyyy-MM').format(_currentDisplayDate);
-      final String displayMonth = DateFormat('MMMM yyyy').format(_currentDisplayDate);
+      final String currentMonth = DateFormat(
+        'yyyy-MM',
+      ).format(_currentDisplayDate);
+      final String displayMonth = DateFormat(
+        'MMMM yyyy',
+      ).format(_currentDisplayDate);
 
       // Chạy 3 câu query CSDL song song
       final results = await Future.wait([
@@ -58,9 +63,10 @@ class _TransactionScreenState extends State<TransactionScreen> {
 
       // 1. Lấy danh sách giao dịch
       final List<Map<String, dynamic>> dataMap =
-      results[0] as List<Map<String, dynamic>>;
-      final List<Transaction> loadedTransactions =
-      dataMap.map((itemMap) => Transaction.fromMap(itemMap)).toList();
+          results[0] as List<Map<String, dynamic>>;
+      final List<Transaction> loadedTransactions = dataMap
+          .map((itemMap) => Transaction.fromMap(itemMap))
+          .toList();
 
       // 2. Lấy tổng thu nhập
       final int income = results[1] as int;
@@ -77,7 +83,8 @@ class _TransactionScreenState extends State<TransactionScreen> {
         _isLoading = false;
 
         print(
-            'Đã tải thành công: ${loadedTransactions.length} giao dịch cho tháng $currentMonth.');
+          'Đã tải thành công: ${loadedTransactions.length} giao dịch cho tháng $currentMonth.',
+        );
         print('Thu nhập T${currentMonth}: $income');
         print('Chi tiêu T${currentMonth}: $expense');
       });
@@ -101,26 +108,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
     _fetchData(); // Tải lại dữ liệu cho tháng mới
   }
 
-  // --- (Hàm _formatCurrency giữ nguyên) ---
-  String _formatCurrency(int amountInCents, {bool showSign = false}) {
-    double amount = amountInCents / 100.0;
-    final format = NumberFormat.currency(locale: 'en_US', symbol: '\$');
-    String formatted = format.format(amount);
-
-    if (showSign) {
-      if (amount > 0) {
-        return '+${format.format(amount)}';
-      } else if (amount < 0) {
-        return format.format(amount);
-      }
-      return format.format(amount);
-    }
-    if (amount < 0) {
-      return format.format(amount * -1);
-    }
-    return formatted;
-  }
-
   // --- (Hàm _addTransaction giữ nguyên) ---
   void _addTransaction() {
     Navigator.push(
@@ -132,7 +119,6 @@ class _TransactionScreenState extends State<TransactionScreen> {
     });
   }
 
-  // --- THÊM LẠI HÀM ĐÃ MẤT ---
   void _viewTransactionDetails(Transaction tx) {
     Navigator.push(
       context,
@@ -145,7 +131,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
       _fetchData();
     });
   }
-  // --- KẾT THÚC THÊM HÀM ---
+
 
   @override
   Widget build(BuildContext context) {
@@ -191,15 +177,18 @@ class _TransactionScreenState extends State<TransactionScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 10),
 
                   // --- BỘ CHỌN THÁNG ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.arrow_back_ios_new,
-                            color: Colors.black54, size: 20),
+                        icon: Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Colors.black54,
+                          size: 20,
+                        ),
                         onPressed: () => _changeMonth(-1), // <-- Nút lùi
                       ),
                       Text(
@@ -211,14 +200,17 @@ class _TransactionScreenState extends State<TransactionScreen> {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.arrow_forward_ios,
-                            color: Colors.black54, size: 20),
+                        icon: Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.black54,
+                          size: 20,
+                        ),
                         onPressed: () => _changeMonth(1), // <-- Nút tiến
                       ),
                     ],
                   ),
-                  // --- KẾT THÚC BỘ CHỌN THÁNG ---
 
+                  // --- KẾT THÚC BỘ CHỌN THÁNG ---
                   const SizedBox(height: 16), // Thêm khoảng cách
 
                   IntrinsicHeight(
@@ -229,87 +221,92 @@ class _TransactionScreenState extends State<TransactionScreen> {
                           child: _BalanceItem(
                             // Bỏ tên tháng ở đây, vì đã có ở trên
                             title: "Total Balance",
-                            amount:
-                            _formatCurrency(_totalBalance, showSign: true),
+                            amount: formatCurrency(
+                              _totalBalance,
+                              showSign: true,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    spacing: 10,
                     children: [
                       // --- ĐIỀN LẠI GESTUREDETECTOR (INCOME) ---
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedFilter =
-                            _selectedFilter == TransactionFilter.income
-                                ? TransactionFilter.all
-                                : TransactionFilter.income;
-                          });
-                        },
-                        child: Container(
-                          width: 171,
-                          height: 101,
-                          decoration: ShapeDecoration(
-                            color: _selectedFilter == TransactionFilter.income
-                                ? Color.fromARGB(255, 188, 248, 195)
-                                : const Color(0xFFF1FFF3),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14.89),
-                              side: _selectedFilter == TransactionFilter.income
-                                  ? BorderSide(color: Colors.green, width: 2)
-                                  : BorderSide.none,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsetsGeometry.only(top: 10),
-                            child: Show(
-                              imageSrc: "assets/images/income.png",
-                              title: "Income",
-                              money: _formatCurrency(
-                                _totalIncome,
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedFilter =
+                                  _selectedFilter == TransactionFilter.income
+                                  ? TransactionFilter.all
+                                  : TransactionFilter.income;
+                            });
+                          },
+
+                          child: Container(
+                            height: 101,
+                            decoration: ShapeDecoration(
+                              color: _selectedFilter == TransactionFilter.income
+                                  ? Color.fromARGB(255, 188, 248, 195)
+                                  : const Color(0xFFF1FFF3),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14.89),
+                                side:
+                                    _selectedFilter == TransactionFilter.income
+                                    ? BorderSide(color: Colors.green, width: 2)
+                                    : BorderSide.none,
                               ),
-                              isExpense: false,
+                            ),
+                            child: Padding(
+                              padding: EdgeInsetsGeometry.only(top: 10),
+                              child: Show(
+                                imageSrc: "assets/images/income.png",
+                                title: "Income",
+                                money: formatCurrency(_totalIncome),
+                                isExpense: false,
+                              ),
                             ),
                           ),
                         ),
                       ),
                       // --- ĐIỀN LẠI GESTUREDETECTOR (EXPENSE) ---
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedFilter =
-                            _selectedFilter == TransactionFilter.expense
-                                ? TransactionFilter.all
-                                : TransactionFilter.expense;
-                          });
-                        },
-                        child: Container(
-                          width: 171,
-                          height: 101,
-                          decoration: ShapeDecoration(
-                            color: _selectedFilter == TransactionFilter.expense
-                                ? Color.fromARGB(255, 255, 201, 201)
-                                : const Color(0xFFF1FFF3),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14.89),
-                              side: _selectedFilter == TransactionFilter.expense
-                                  ? BorderSide(color: Colors.red, width: 2)
-                                  : BorderSide.none,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: EdgeInsetsGeometry.only(top: 10),
-                            child: Show(
-                              imageSrc: "assets/images/expenses.png",
-                              title: "Expense",
-                              money: _formatCurrency(
-                                _totalExpense,
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedFilter =
+                                  _selectedFilter == TransactionFilter.expense
+                                  ? TransactionFilter.all
+                                  : TransactionFilter.expense;
+                            });
+                          },
+                          child: Container(
+                            height: 101,
+                            decoration: ShapeDecoration(
+                              color:
+                                  _selectedFilter == TransactionFilter.expense
+                                  ? Color.fromARGB(255, 255, 201, 201)
+                                  : const Color(0xFFF1FFF3),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14.89),
+                                side:
+                                    _selectedFilter == TransactionFilter.expense
+                                    ? BorderSide(color: Colors.red, width: 2)
+                                    : BorderSide.none,
                               ),
-                              isExpense: true,
+                            ),
+                            child: Padding(
+                              padding: EdgeInsetsGeometry.only(top: 10),
+                              child: Show(
+                                imageSrc: "assets/images/expenses.png",
+                                title: "Expense",
+                                money: formatCurrency(_totalExpense),
+                                isExpense: true,
+                              ),
                             ),
                           ),
                         ),
@@ -362,14 +359,14 @@ class _TransactionScreenState extends State<TransactionScreen> {
                                 ),
                               )
                             else
-                            // --- SỬA LOGIC HIỂN THỊ LIST ---
-                            // Bỏ groupBy vì ta chỉ hiển thị 1 tháng
+                              // --- SỬA LOGIC HIỂN THỊ LIST ---
+                              // Bỏ groupBy vì ta chỉ hiển thị 1 tháng
                               Column(
                                 children: filteredList.map((tx) {
                                   return _buildTransactionItem(tx);
                                 }).toList(),
                               ),
-                            const SizedBox(height: 50),
+                            const SizedBox(height: 60),
                           ],
                         ),
                       ),
@@ -413,7 +410,7 @@ class _TransactionScreenState extends State<TransactionScreen> {
     }
 
     // 2. Logic định dạng tiền tệ
-    String formattedAmount = _formatCurrency(tx.amount); // Dùng helper mới
+    String formattedAmount = formatCurrency(tx.amount); // Dùng helper mới
     if (!tx.isIncome) {
       formattedAmount = "-$formattedAmount"; // Thêm dấu trừ cho chi tiêu
     }

@@ -1,26 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import 'package:money_app/models/transaction.dart';
 import 'package:money_app/screens/dbhelper.dart';
 import 'package:money_app/screens/transaction_interface/add_transaction_screen.dart';
+import 'package:money_app/widgets/format_currency.dart';
 
 class TransactionDetailScreen extends StatelessWidget {
   final Transaction transaction;
 
   const TransactionDetailScreen({super.key, required this.transaction});
-
-  // Hàm định dạng tiền tệ (copy từ TransactionScreen)
-  String _formatCurrency(int amountInCents, {bool isIncome = false}) {
-    double amount = amountInCents / 100.0;
-    final format = NumberFormat.currency(locale: 'en_US', symbol: '\$');
-
-    if (isIncome) {
-      return format.format(amount);
-    } else {
-      // Hiển thị số âm cho chi tiêu
-      return format.format(amount * -1);
-    }
-  }
 
   // Hàm xử lý "Delete"
   Future<void> _deleteTransaction(BuildContext context) async {
@@ -82,6 +71,17 @@ class TransactionDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // --- SỬA LOGIC TIỀN TỆ Ở ĐÂY ---
+    final String formattedAmount;
+    if (transaction.isIncome) {
+      // Gọi với showSign: true để có dấu '+'
+      formattedAmount = formatCurrency(transaction.amount, showSign: true);
+    } else {
+      // Gọi bình thường và tự thêm dấu '-'
+      formattedAmount = "-${formatCurrency(transaction.amount)}";
+    }
+    // --- KẾT THÚC SỬA ---
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Chi tiết giao dịch'),
@@ -94,7 +94,7 @@ class TransactionDetailScreen extends StatelessWidget {
           children: [
             // Hiển thị số tiền lớn
             Text(
-              _formatCurrency(transaction.amount, isIncome: transaction.isIncome),
+              formattedAmount, // <-- Dùng biến đã định dạng
               style: TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.bold,

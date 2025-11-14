@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:money_app/models/transaction.dart'; // <-- Thêm import model
+
+import 'package:money_app/models/transaction.dart';
 import 'package:money_app/screens/dbhelper.dart';
 
 class AddTransactionScreen extends StatefulWidget {
-  // --- THÊM VÀO ---
-  // Nhận giao dịch (nếu có) để sửa
   final Transaction? transactionToEdit;
 
   const AddTransactionScreen({
     super.key,
-    this.transactionToEdit, // <-- Thêm vào constructor
+    this.transactionToEdit, //
   });
-  // --- KẾT THÚC THÊM ---
+
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -37,11 +36,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     'bills',
     'salary',
     'other',
-    'groceries', // <-- Thêm category từ code cũ
-    'rent', // <-- Thêm category từ code cũ
+    'groceries',
+    'rent',
   ];
 
-  // --- THÊM initState ĐỂ ĐIỀN FORM ---
+  // --- SỬA initState ĐỂ DÙNG VNĐ ---
   @override
   void initState() {
     super.initState();
@@ -53,7 +52,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
       // Điền (pre-fill) dữ liệu vào form
       _noteController.text = tx.note ?? '';
-      _amountController.text = (tx.amount / 100.0).toStringAsFixed(2);
+      // SỬA Ở ĐÂY: Hiển thị số VNĐ (ví dụ: 50000)
+      _amountController.text = tx.amount.toString();
       _selectedDate = tx.createdAt;
       _selectedCategory = tx.category;
       _transactionType = tx.direction;
@@ -77,7 +77,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
   }
 
-  // --- HÀM _submitData (ĐÃ CẬP NHẬT) ---
+  // --- HÀM _submitData (ĐÃ SỬA SANG VNĐ) ---
   Future<void> _submitData() async {
     // 1. Kiểm tra validation
     if (!_formKey.currentState!.validate()) {
@@ -86,12 +86,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
     // 2. Lấy dữ liệu
     final note = _noteController.text;
-    final amountText =
-    _amountController.text.replaceAll('\$', '').replaceAll(',', '');
-    final amountDouble = double.tryParse(amountText) ?? 0.0;
-    final amountInCents = (amountDouble * 100).toInt();
 
-    if (amountInCents <= 0 || _selectedCategory == null) {
+    // SỬA Ở ĐÂY: Đọc số VNĐ
+    final amountText =
+    _amountController.text.replaceAll('₫', '').replaceAll(',', '').replaceAll('.', ''); // Xóa dấu phẩy, chấm, ký hiệu
+    final amountDouble = double.tryParse(amountText) ?? 0.0;
+    final amountInt = amountDouble.toInt(); // Chuyển thành số nguyên
+
+    if (amountInt <= 0 || _selectedCategory == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please enter a valid amount and category.')),
       );
@@ -132,7 +134,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         // --- CHẠY LOGIC UPDATE ---
         await DBHelper.updateTransaction(
           id: widget.transactionToEdit!.id, // <-- Cần ID
-          amount: amountInCents,
+          amount: amountInt, // <-- Dùng số VNĐ
           note: note,
           category: _selectedCategory!,
           direction: _transactionType,
@@ -141,7 +143,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       } else {
         // --- CHẠY LOGIC INSERT (NHƯ CŨ) ---
         await DBHelper.insertTransaction(
-          amount: amountInCents,
+          amount: amountInt, // <-- Dùng số VNĐ
           note: note,
           category: _selectedCategory!,
           direction: _transactionType,
@@ -265,22 +267,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // --- Amount Field (Code giữ nguyên) ---
+                    // --- Amount Field (ĐÃ SỬA SANG VNĐ) ---
                     Text('Amount', style: TextStyle(color: Colors.grey[700])),
                     TextFormField(
                       controller: _amountController,
                       decoration: InputDecoration(
-                        prefixText: '\$',
-                        hintText: '0.00',
+                        suffixText: 'VNĐ', // <-- Thêm VNĐ
+                        hintText: '0',
                       ),
                       keyboardType:
-                      TextInputType.numberWithOptions(decimal: true),
+                      TextInputType.number, // Đổi sang số nguyên
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter an amount';
                         }
-                        if (double.tryParse(
-                            value.replaceAll(',', '')) ==
+                        if (int.tryParse(value.replaceAll(',', '').replaceAll('.', '')) ==
                             null) {
                           return 'Please enter a valid number';
                         }
