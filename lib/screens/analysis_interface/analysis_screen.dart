@@ -87,10 +87,22 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       }
 
       // 3. Tính toán maxY cho biểu đồ (làm tròn lên 5 Triệu gần nhất)
-      double newMaxY = (maxDataValue / 5000000).ceil() * 10000000;
+      double newMaxY = (maxDataValue / 5000000).ceil() * 5000000;
       if (newMaxY <= maxDataValue) {
         newMaxY += 5000000;
       }
+      // Đảm bảo maxY tối thiểu là 5M
+      if (newMaxY < 5000000) {
+        newMaxY = 5000000;
+      }
+
+      // Debug logging
+      print('Analysis Data Loaded:');
+      print('Year: $displayYear');
+      print('Total Income: $income, Total Expense: $expense');
+      print('Max Data Value: $maxDataValue, Chart MaxY: $newMaxY');
+      print('Monthly Income: $tempIncome');
+      print('Monthly Expense: $tempExpense');
 
       setState(() {
         // Gán dữ liệu cho Header
@@ -102,9 +114,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         // Gán dữ liệu cho Biểu đồ
         _monthlyIncome = tempIncome;
         _monthlyExpense = tempExpense;
-        _chartMaxY = newMaxY < 5000000
-            ? 5000000
-            : newMaxY; // MaxY tối thiểu là 5M
+        _chartMaxY = newMaxY;
 
         _isLoading = false;
       });
@@ -132,7 +142,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             child: YearPicker(
               firstDate: DateTime(2020), // Năm bắt đầu
               lastDate: DateTime(2100), // Năm kết thúc
-              initialDate: _selectedDate,
               selectedDate: _selectedDate,
               onChanged: (DateTime dateTime) {
                 // Khi người dùng chọn, đóng hộp thoại và trả về giá trị
@@ -224,7 +233,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           ),
                         ),
                         child: Padding(
-                          padding: EdgeInsetsGeometry.only(top: 10),
+                          padding: const EdgeInsets.only(top: 10),
                           child: Show(
                             imageSrc: "assets/images/income.png",
                             title: "Income",
@@ -248,7 +257,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                           ),
                         ),
                         child: Padding(
-                          padding: EdgeInsetsGeometry.only(top: 10),
+                          padding: const EdgeInsets.only(top: 10),
                           child: Show(
                             imageSrc: "assets/images/expenses.png",
                             title: "Expense",
@@ -325,16 +334,21 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           const SizedBox(height: 20),
 
           // 1. Bọc bằng SingleChildScrollView để cuộn ngang
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Container(
-              padding: EdgeInsetsGeometry.only(top: 10),
-              // 2. Cung cấp chiều cao và chiều rộng CỐ ĐỊNH
-              height: 250.0,
-              width: 600.0,
-              child: BarChart(mainBarChart()),
-            ),
-          ),
+          _isLoading
+              ? const SizedBox(
+                  height: 250.0,
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Container(
+                    padding: const EdgeInsets.only(top: 10),
+                    // 2. Cung cấp chiều cao và chiều rộng CỐ ĐỊNH
+                    height: 250.0,
+                    width: 600.0,
+                    child: BarChart(mainBarChart()),
+                  ),
+                ),
         ],
       ),
     );

@@ -6,6 +6,125 @@ class SyncService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  /// Downloads all data from Firestore and overwrites the local SQLite database
+  static Future<bool> downloadDataFromFirebase() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      print("[SyncService] ERROR: Download failed because user is not logged in.");
+      return false;
+    }
+    print("[SyncService] Starting download for user: ${user.uid}");
+
+    try {
+      final userDocRef = _firestore.collection('users').doc(user.uid);
+
+      // 1. Download Transactions
+      final transactionsSnapshot = await userDocRef.collection('transactions').get();
+      final List<Map<String, dynamic>> transactions = [];
+      for (final doc in transactionsSnapshot.docs) {
+        final data = doc.data();
+        // Convert Firestore Timestamp back to ISO8601 string
+        if (data['created_at'] is Timestamp) {
+          data['created_at'] = (data['created_at'] as Timestamp).toDate().toIso8601String();
+        }
+        if (data['updated_at'] is Timestamp) {
+          data['updated_at'] = (data['updated_at'] as Timestamp).toDate().toIso8601String();
+        }
+        transactions.add(data);
+      }
+      print("[SyncService] Downloaded ${transactions.length} transactions.");
+
+      // 2. Download Messages
+      final messagesSnapshot = await userDocRef.collection('messages').get();
+      final List<Map<String, dynamic>> messages = [];
+      for (final doc in messagesSnapshot.docs) {
+        final data = doc.data();
+        if (data['created_at'] is Timestamp) {
+          data['created_at'] = (data['created_at'] as Timestamp).toDate().toIso8601String();
+        }
+        messages.add(data);
+      }
+      print("[SyncService] Downloaded ${messages.length} messages.");
+
+      // 3. Download Budgets
+      final budgetsSnapshot = await userDocRef.collection('budgets').get();
+      final List<Map<String, dynamic>> budgets = [];
+      for (final doc in budgetsSnapshot.docs) {
+        budgets.add(doc.data());
+      }
+      print("[SyncService] Downloaded ${budgets.length} budgets.");
+
+      // 4. Clear local database and insert downloaded data
+      await DBHelper.clearAllData();
+      if (transactions.isNotEmpty) {
+        await DBHelper.bulkInsertTransactions(transactions);
+      }
+      if (messages.isNotEmpty) {
+        await DBHelper.bulkInsertMessages(messages);
+      }
+      if (budgets.isNotEmpty) {
+        await DBHelper.bulkInsertBudgets(budgets);
+      }
+
+      print("[SyncService] SUCCESS: Data downloaded and saved to local database.");
+      return true;
+    } catch (e) {
+      print("================================================================");
+      print("[SyncService] CRITICAL ERROR: Failed to download data from Firebase.");
+      print("Error Details: $e");
+      print("================================================================");
+      return false;
+    }
+  }
+
+  /// Uploads a single transaction to Firestore immediately
+  static Future<bool> syncSingleTransactionToFirebase(Map<String, dynamic> transaction) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      print("[SyncService] ERROR: Cannot sync transaction - user not logged in.");
+      return false;
+    }
+
+    try {
+      final userDocRef = _firestore.collection('users').doc(user.uid);
+      final transactionRef = userDocRef.collection('transactions').doc(transaction['id'].toString());
+
+      final firestoreData = Map<String, dynamic>.from(transaction);
+      if (firestoreData['created_at'] is String) {
+        firestoreData['created_at'] = Timestamp.fromDate(DateTime.parse(firestoreData['created_at']));
+      }
+      if (firestoreData['updated_at'] != null && firestoreData['updated_at'] is String) {
+        firestoreData['updated_at'] = Timestamp.fromDate(DateTime.parse(firestoreData['updated_at']));
+      }
+
+      await transactionRef.set(firestoreData);
+      print("[SyncService] Transaction ${transaction['id']} synced to Firebase.");
+      return true;
+    } catch (e) {
+      print("[SyncService] ERROR: Failed to sync transaction to Firebase: $e");
+      return false;
+    }
+  }
+
+  /// Deletes a single transaction from Firestore
+  static Future<bool> deleteTransactionFromFirebase(int transactionId) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      print("[SyncService] ERROR: Cannot delete transaction - user not logged in.");
+      return false;
+    }
+
+    try {
+      final userDocRef = _firestore.collection('users').doc(user.uid);
+      await userDocRef.collection('transactions').doc(transactionId.toString()).delete();
+      print("[SyncService] Transaction $transactionId deleted from Firebase.");
+      return true;
+    } catch (e) {
+      print("[SyncService] ERROR: Failed to delete transaction from Firebase: $e");
+      return false;
+    }
+  }
+
   /// Fetches all data from the local SQLite database (transactions, messages, budgets)
   /// and uploads it to corresponding collections in Firestore.
   static Future<bool> syncAllDataToFirebase() async {

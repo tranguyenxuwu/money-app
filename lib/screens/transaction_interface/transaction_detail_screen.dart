@@ -17,17 +17,17 @@ class TransactionDetailScreen extends StatelessWidget {
     final bool? didConfirm = await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Xác nhận xóa?'),
-        content: Text('Bạn có chắc chắn muốn xóa giao dịch này không?'),
+        title: Text('Conformation?'),
+        content: Text('Are you sure to delete this transaction?'),
         actions: [
           TextButton(
-            child: Text('Hủy'),
+            child: Text('Cancel'),
             onPressed: () {
               Navigator.of(ctx).pop(false); // Trả về false
             },
           ),
           TextButton(
-            child: Text('Xóa'),
+            child: Text('Delete'),
             onPressed: () {
               Navigator.of(ctx).pop(true); // Trả về true
             },
@@ -149,7 +149,7 @@ class TransactionDetailScreen extends StatelessWidget {
                 // Nút Update
                 ElevatedButton.icon(
                   icon: Icon(Icons.edit),
-                  label: Text('Cập nhật'),
+                  label: Text('Update'),
                   onPressed: () => _editTransaction(context), // <-- Kích hoạt lại
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
@@ -159,7 +159,7 @@ class TransactionDetailScreen extends StatelessWidget {
                 // Nút Delete
                 ElevatedButton.icon(
                   icon: Icon(Icons.delete),
-                  label: Text('Xóa'),
+                  label: Text('Delete'),
                   onPressed: () => _deleteTransaction(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.red,

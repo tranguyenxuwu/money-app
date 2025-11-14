@@ -7,6 +7,7 @@ import 'package:money_app/screens/login_and_signup/login_screen.dart';
 import 'package:money_app/firebase_options.dart';
 import 'package:money_app/screens/home_interface/home_screen.dart';
 import 'package:money_app/screens/transaction_interface/transaction_screen.dart';
+import 'package:money_app/services/sync_service.dart';
 import 'screens/chat_interface/chat_interface.dart'; // nhớ file này có ChatInterfaceScreen
 
 
@@ -48,7 +49,28 @@ class MyApp extends StatelessWidget {
             );
           }
           if (snapshot.hasData) {
-            return const HomeScreen();
+            // User is logged in - download Firebase data and show HomeScreen
+            return FutureBuilder<bool>(
+              future: SyncService.downloadDataFromFirebase(),
+              builder: (context, syncSnapshot) {
+                if (syncSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Syncing data from Firebase...'),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                // Whether sync succeeded or failed, show HomeScreen
+                return const HomeScreen();
+              },
+            );
           }
           return const LoginScreen();
         },

@@ -5,6 +5,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'dart:async';
+import 'package:money_app/services/sync_service.dart';
 
 class DBHelper {
   static Database? _db;
@@ -37,21 +38,26 @@ class DBHelper {
     final dir = await getApplicationDocumentsDirectory();
     final dbPath = join(dir.path, 'money_app.sqlite');
 
-    // Luôn ghi đè DB từ assets để đảm bảo dữ liệu mới nhất cho dev
-    try {
-      await Directory(dirname(dbPath)).create(recursive: true);
-      final data = await rootBundle.load('assets/database.sqlite');
-      final bytes = data.buffer.asUint8List(
-        data.offsetInBytes,
-        data.lengthInBytes,
-      );
-      await File(dbPath).writeAsBytes(bytes, flush: true);
-      print("Database is overwritten with asset file.");
-    } catch (e) {
-      print("Error overwriting database: $e");
-      // fallback: tạo rỗng nếu copy lỗi
-      await Directory(dirname(dbPath)).create(recursive: true);
-      await File(dbPath).writeAsBytes(const [], flush: true);
+    // Only copy from assets if database doesn't exist (to allow Firebase sync to persist)
+    final dbFile = File(dbPath);
+    if (!await dbFile.exists()) {
+      try {
+        await Directory(dirname(dbPath)).create(recursive: true);
+        final data = await rootBundle.load('assets/database.sqlite');
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        );
+        await File(dbPath).writeAsBytes(bytes, flush: true);
+        print("Database copied from asset file.");
+      } catch (e) {
+        print("Error copying database from assets: $e");
+        // fallback: create empty file if copy fails
+        await Directory(dirname(dbPath)).create(recursive: true);
+        await File(dbPath).writeAsBytes(const [], flush: true);
+      }
+    } else {
+      print("Database already exists, skipping asset copy.");
     }
 
     final db = await openDatabase(
@@ -135,8 +141,8 @@ class DBHelper {
   }
 
   static Future<List<Map<String, dynamic>>> getTransactionsByMonth(
-    String ym,
-  ) async {
+      String ym,
+      ) async {
     final db = await database;
     return db.rawQuery(
       '''
@@ -284,7 +290,7 @@ class DBHelper {
     DateTime? createdAt,
   }) async {
     final db = await database;
-    return db.insert('transactions', {
+    final id = await db.insert('transactions', {
       'amount': amount,
       'note': note,
       'category': category,
@@ -292,6 +298,14 @@ class DBHelper {
       'status': status,
       'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
     });
+
+    // Auto-sync to Firebase
+    final transaction = await getTransactionById(id);
+    if (transaction != null) {
+      SyncService.syncSingleTransactionToFirebase(transaction);
+    }
+
+    return id;
   }
 
   static Future<int> updateTransaction({
@@ -304,7 +318,7 @@ class DBHelper {
     required DateTime createdAt,
   }) async {
     final db = await database;
-    return db.update(
+    final result = await db.update(
       'transactions',
       {
         'amount': amount,
@@ -318,15 +332,28 @@ class DBHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    // Auto-sync to Firebase
+    final transaction = await getTransactionById(id);
+    if (transaction != null) {
+      SyncService.syncSingleTransactionToFirebase(transaction);
+    }
+
+    return result;
   }
 
   static Future<int> deleteTransaction(int id) async {
     final db = await database;
-    return db.delete(
+    final result = await db.delete(
       'transactions',
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    // Auto-sync deletion to Firebase
+    SyncService.deleteTransactionFromFirebase(id);
+
+    return result;
   }
 
   // ===== Messages APIs =====
@@ -394,5 +421,57 @@ class DBHelper {
     ''',
       [limit],
     );
+  }
+
+  // ===== Firebase Sync APIs =====
+
+  /// Clear all data from local database (for Firebase sync)
+  static Future<void> clearAllData() async {
+    final db = await database;
+    await db.delete('transactions');
+    await db.delete('messages');
+    await db.delete('budgets');
+    print('[DBHelper] All local data cleared.');
+  }
+
+  /// Bulk insert transactions (for Firebase sync)
+  static Future<void> bulkInsertTransactions(List<Map<String, dynamic>> transactions) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final txn in transactions) {
+      batch.insert('transactions', txn, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    print('[DBHelper] Bulk inserted ${transactions.length} transactions.');
+  }
+
+  /// Bulk insert messages (for Firebase sync)
+  static Future<void> bulkInsertMessages(List<Map<String, dynamic>> messages) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final msg in messages) {
+      batch.insert('messages', msg, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    print('[DBHelper] Bulk inserted ${messages.length} messages.');
+  }
+
+  /// Bulk insert budgets (for Firebase sync)
+  static Future<void> bulkInsertBudgets(List<Map<String, dynamic>> budgets) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final budget in budgets) {
+      batch.insert('budgets', budget, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+    print('[DBHelper] Bulk inserted ${budgets.length} budgets.');
+  }
+
+  /// Get a single transaction by ID (for Firebase sync)
+  static Future<Map<String, dynamic>?> getTransactionById(int id) async {
+    final db = await database;
+    final results = await db.query('transactions', where: 'id = ?', whereArgs: [id]);
+    if (results.isEmpty) return null;
+    return results.first;
   }
 }
