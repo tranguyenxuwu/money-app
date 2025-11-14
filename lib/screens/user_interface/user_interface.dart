@@ -185,8 +185,8 @@ class _UserInterfaceScreenState extends State<UserInterfaceScreen> {
                   const Divider(),
                   ListTile(
                     leading: const Icon(Icons.sync),
-                    title: const Text('Đồng bộ thủ công'),
-                    subtitle: const Text('Đẩy dữ liệu local lên đám mây'),
+                    title: const Text('Manual Sync'),
+                    subtitle: const Text('Push local data to the cloud'),
                     onTap: _syncData,
                   ),
                 ],

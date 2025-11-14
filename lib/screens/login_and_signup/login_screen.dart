@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  String? _errorMessage;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
@@ -30,6 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
 
       try {
@@ -48,15 +50,25 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } on FirebaseAuthException catch (e) {
+        String message;
         if (e.code == 'user-not-found') {
-          print('Không tìm thấy người dùng với email này.');
+          message = 'Không tìm thấy người dùng với email này.';
         } else if (e.code == 'wrong-password') {
-          print('Sai mật khẩu.');
+          message = 'Sai mật khẩu.';
         } else {
-          print(e.message); // In ra lỗi chung
+          message = e.message ?? 'Đã xảy ra lỗi.';
+        }
+        if (mounted) {
+          setState(() {
+            _errorMessage = message;
+          });
         }
       } catch (e) {
-        print(e.toString());
+        if (mounted) {
+          setState(() {
+            _errorMessage = e.toString();
+          });
+        }
       } finally {
         if (mounted) {
           setState(() {
@@ -128,6 +140,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 24),
+                  if (_errorMessage != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10.0),
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red, fontSize: 14),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   _isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : ElevatedButton(
@@ -162,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         MaterialPageRoute(builder: (context) => const HomeScreen()),
                       );
                     },
-                    child: const Text('Bỏ qua'),
+                    child: const Text('Skip'),
                   ),
                 ],
               ),
